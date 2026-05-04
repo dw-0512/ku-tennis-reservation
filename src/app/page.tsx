@@ -356,7 +356,6 @@ export default async function Home() {
 
   return (
   <main className="min-h-screen bg-[#F8F8F8]">
-    <AutoRefreshOnOpen nextOpenAt={nextOpenAt} />
       <section className="bg-[#8B0029] px-5 py-6 text-white">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -544,6 +543,7 @@ return (
           </div>
         )}
       </section>
+      <AutoRefreshOnOpen nextOpenAt={nextOpenAt} />
     </main>
   );
 }
