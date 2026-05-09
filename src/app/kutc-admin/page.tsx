@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type AdminReservation = {
@@ -233,6 +233,18 @@ const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   const selectedWeek =
     weekOptions.find((week) => week.id === selectedWeekId) ?? weekOptions[0];
 
+useEffect(() => {
+  const savedPassword = window.sessionStorage.getItem("kutcAdminPassword");
+
+  if (!savedPassword) {
+    return;
+  }
+
+  setPassword(savedPassword);
+  setIsUnlocked(true);
+  void loadSavedBatches(savedPassword);
+}, []);
+
   function isSavedWeek(startDate: string, batches = savedBatches) {
   return batches.some((batch) => batch.startDate === startDate);
 }
@@ -297,6 +309,8 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
     alert(result.message ?? "관리자 비밀번호가 올바르지 않습니다.");
     return;
   }
+
+  window.sessionStorage.setItem("kutcAdminPassword", password);
 
   setIsUnlocked(true);
   await loadSavedBatches(password);
@@ -541,12 +555,21 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
               </h1>
             </div>
 
-            <Link
-              href="/"
-              className="w-fit rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white ring-1 ring-white/20 transition hover:bg-white/20"
-            >
-              코트 예약으로 돌아가기
-            </Link>
+            <div className="flex flex-wrap gap-2 text-sm font-bold">
+              <Link
+                href="/"
+                className="rounded-full bg-white/10 px-4 py-2 text-white ring-1 ring-white/20 transition hover:bg-white/20"
+              >
+                코트 예약으로 돌아가기
+              </Link>
+
+              <Link
+                href="/kutc-admin/notices"
+                className="rounded-full bg-white/10 px-4 py-2 text-white ring-1 ring-white/20 transition hover:bg-white/20"
+              >
+                공지사항 관리
+              </Link>
+            </div>
           </div>
         </div>
       </section>
