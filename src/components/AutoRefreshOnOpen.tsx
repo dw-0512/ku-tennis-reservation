@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 type AutoRefreshOnOpenProps = {
   nextOpenAt: string | null;
+  serverNow: string;
 };
 
 function formatRemainingTime(milliseconds: number) {
@@ -22,6 +23,7 @@ function formatRemainingTime(milliseconds: number) {
 
 export default function AutoRefreshOnOpen({
   nextOpenAt,
+  serverNow,
 }: AutoRefreshOnOpenProps) {
   const router = useRouter();
   const [remainingText, setRemainingText] = useState("");
@@ -33,9 +35,16 @@ export default function AutoRefreshOnOpen({
     }
 
     const openTime = new Date(nextOpenAt).getTime();
+    const serverNowTime = new Date(serverNow).getTime();
+    const clientNowTime = Date.now();
+    const serverTimeOffset = serverNowTime - clientNowTime;
+
+    function getCorrectedNow() {
+      return Date.now() + serverTimeOffset;
+    }
 
     function updateCountdown() {
-      const remainingMs = openTime - Date.now();
+      const remainingMs = openTime - getCorrectedNow();
 
       if (remainingMs <= 0) {
         setRemainingText("곧 열립니다");
@@ -48,7 +57,7 @@ export default function AutoRefreshOnOpen({
     updateCountdown();
 
     const interval = window.setInterval(updateCountdown, 1000);
-    const delay = openTime - Date.now();
+    const delay = openTime - getCorrectedNow();
 
     const timers =
       delay > 0
@@ -70,7 +79,7 @@ export default function AutoRefreshOnOpen({
       window.clearInterval(interval);
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [nextOpenAt, router]);
+  }, [nextOpenAt, serverNow, router]);
 
   if (!nextOpenAt || !remainingText) {
     return null;

@@ -26,7 +26,7 @@ function isNewNotice(dateString: string) {
   const createdAt = new Date(dateString).getTime();
   const now = Date.now();
 
-  const threeDays = 3 * 24 * 60 * 60 * 1000;
+  const threeDays = 24 * 60 * 60 * 1000;
 
   return now - createdAt <= threeDays;
 }

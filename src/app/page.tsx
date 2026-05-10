@@ -337,6 +337,8 @@ export default async function Home() {
     getNextOpenAt(),
   ]);
 
+  const serverNow = new Date().toISOString();
+
   const batchIds = batches.map((batch) => batch.id);
   const activeReservations = await getActiveReservations(batchIds);
 
@@ -412,7 +414,7 @@ export default async function Home() {
             {batches.map((batch) => (
               <section key={batch.id} className="space-y-6">
                 <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
-                  <p className="text-sm font-bold text-gray-500">예약 일정</p>
+                  <p className="text-sm font-bold text-[#8B0029]">예약 일정</p>
 
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="text-2xl font-bold text-gray-900">
@@ -543,7 +545,7 @@ return (
           </div>
         )}
       </section>
-      <AutoRefreshOnOpen nextOpenAt={nextOpenAt} />
+      <AutoRefreshOnOpen nextOpenAt={nextOpenAt} serverNow={serverNow} />
     </main>
   );
 }
