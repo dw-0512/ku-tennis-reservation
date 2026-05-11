@@ -14,14 +14,17 @@ type Notice = {
 };
 
 function formatKoreanDateTime(dateString: string) {
-  return new Intl.DateTimeFormat("ko-KR", {
+  const formatter = new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
     year: "numeric",
     month: "long",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(dateString));
+    hourCycle: "h23",
+  });
+
+  return formatter.format(new Date(dateString));
 }
 
 export default function AdminNoticesPage() {
