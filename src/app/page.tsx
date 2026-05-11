@@ -42,6 +42,12 @@ type DbReservation = {
   reserver_name: string;
 };
 
+type NoticePreview = {
+  id: string;
+  title: string;
+  created_at: string;
+};
+
 type Slot = {
   groupId: string;
   segmentId: string;
@@ -136,6 +142,15 @@ function formatKoreanDateString(dateString: string) {
   const [, month, day] = dateString.split("-").map(Number);
 
   return `${month}월 ${day}일`;
+}
+
+function isNewNotice(dateString: string) {
+  const createdAt = new Date(dateString).getTime();
+  const now = Date.now();
+
+  const oneDay = 24 * 60 * 60 * 1000;
+
+  return now - createdAt <= oneDay;
 }
 
 function getCourtGroupDateLabel(batchStartDate: string, dayName: string) {
@@ -302,6 +317,21 @@ async function getNextOpenAt() {
   return data?.open_at ?? null;
 }
 
+async function getNoticePreviews() {
+  const { data, error } = await supabaseAdmin
+    .from("notices")
+    .select("id, title, created_at")
+    .eq("is_published", true)
+    .order("created_at", { ascending: false })
+    .limit(3);
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []) as NoticePreview[];
+}
+
 async function getActiveReservations(batchIds: string[]) {
   if (batchIds.length === 0) {
     return [];
@@ -332,9 +362,10 @@ async function getActiveReservations(batchIds: string[]) {
 }
 
 export default async function Home() {
-  const [batches, nextOpenAt] = await Promise.all([
+  const [batches, nextOpenAt, noticePreviews] = await Promise.all([
     getVisibleBatches(),
     getNextOpenAt(),
+    getNoticePreviews(),
   ]);
 
   const serverNow = new Date().toISOString();
@@ -397,6 +428,44 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+            {noticePreviews.length > 0 ? (
+        <section className="mx-auto max-w-6xl px-5 pt-6">
+          <Link
+            href="/notice"
+            className="block rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5] transition hover:shadow-md"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-[#8B0029]">공지사항</p>
+
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700">
+                전체 보기
+              </span>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {noticePreviews.map((notice) => (
+                <div
+                  key={notice.id}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
+
+                  <p className="min-w-0 truncate font-bold text-gray-900">
+                    {notice.title}
+                  </p>
+
+                  {isNewNotice(notice.created_at) ? (
+                    <span className="shrink-0 rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
+                      N
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </Link>
+        </section>
+      ) : null}
 
       <section className="mx-auto max-w-6xl px-5 py-6">
         {batches.length === 0 ? (

@@ -64,6 +64,12 @@ function addDaysToDateString(dateString: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function getExtraReservationOpenAt(courtDate: string) {
+  const previousDate = addDaysToDateString(courtDate, -1);
+
+  return new Date(`${previousDate}T22:00:00+09:00`).getTime();
+}
+
 function getKoreaTodayDateString() {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",
@@ -349,6 +355,8 @@ if (courtDate === today && slotStartTime <= currentTime) {
   }
 
   const passwordHash = hashPassword(password);
+  const extraReservationOpenAt = getExtraReservationOpenAt(courtDate);
+  const isExtraReservation = now >= extraReservationOpenAt;
 
   const { data, error } = await supabaseAdmin
     .from("reservations")
@@ -362,6 +370,7 @@ if (courtDate === today && slotStartTime <= currentTime) {
       reserver_name: reserverName,
       student_id: studentId,
       password_hash: passwordHash,
+      is_extra_reservation: isExtraReservation,
     })
     .select("id")
     .single();
