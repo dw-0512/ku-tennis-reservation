@@ -221,28 +221,22 @@ export async function POST(request: Request) {
     !studentId ||
     !password
   ) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "예약 정보를 모두 입력해주세요.",
-        },
-        { status: 400 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "예약 정보를 모두 입력해주세요.",
+      },
+      { status: 400 }
     );
   }
 
   if (![1, 2].includes(courtNumber)) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "코트 번호가 올바르지 않습니다.",
-        },
-        { status: 400 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "코트 번호가 올바르지 않습니다.",
+      },
+      { status: 400 }
     );
   }
 
@@ -253,15 +247,12 @@ export async function POST(request: Request) {
     .single();
 
   if (batchError || !batch) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "예약 배너를 찾을 수 없습니다.",
-        },
-        { status: 404 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "예약 배너를 찾을 수 없습니다.",
+      },
+      { status: 404 }
     );
   }
 
@@ -270,28 +261,22 @@ export async function POST(request: Request) {
   const closeAt = new Date(batch.close_at).getTime();
 
   if (now < openAt) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "아직 예약 오픈 전입니다.",
-        },
-        { status: 403 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "아직 예약 오픈 전입니다.",
+      },
+      { status: 403 }
     );
   }
 
   if (now > closeAt) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "예약 가능 시간이 지났습니다.",
-        },
-        { status: 403 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "예약 가능 시간이 지났습니다.",
+      },
+      { status: 403 }
     );
   }
 
@@ -302,43 +287,34 @@ export async function POST(request: Request) {
     .single();
 
   if (groupError || !group) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "코트 그룹을 찾을 수 없습니다.",
-        },
-        { status: 404 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "코트 그룹을 찾을 수 없습니다.",
+      },
+      { status: 404 }
     );
   }
 
   if (group.batch_id !== batchId) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "예약 배너와 코트 정보가 일치하지 않습니다.",
-        },
-        { status: 400 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "예약 배너와 코트 정보가 일치하지 않습니다.",
+      },
+      { status: 400 }
     );
   }
 
   const dayOffset = dayOffsetMap[group.day_name];
 
   if (dayOffset === undefined) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "요일 정보가 올바르지 않습니다.",
-        },
-        { status: 400 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "요일 정보가 올바르지 않습니다.",
+      },
+      { status: 400 }
     );
   }
 
@@ -346,28 +322,22 @@ export async function POST(request: Request) {
   const { today, currentTime } = getKoreaDateTimeParts();
 
   if (courtDate < today) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "이미 지난 날짜의 예약입니다.",
-        },
-        { status: 403 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "이미 지난 날짜의 예약입니다.",
+      },
+      { status: 403 }
     );
   }
 
   if (courtDate === today && slotStartTime <= currentTime) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "이미 시작된 시간은 예약할 수 없습니다.",
-        },
-        { status: 403 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "이미 시작된 시간은 예약할 수 없습니다.",
+      },
+      { status: 403 }
     );
   }
 
@@ -378,41 +348,32 @@ export async function POST(request: Request) {
     .single();
 
   if (segmentError || !segment) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "해당 시간 구간을 찾을 수 없습니다.",
-        },
-        { status: 404 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "해당 시간 구간을 찾을 수 없습니다.",
+      },
+      { status: 404 }
     );
   }
 
   if (segment.group_id !== groupId) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "코트 정보가 올바르지 않습니다.",
-        },
-        { status: 400 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "코트 정보가 올바르지 않습니다.",
+      },
+      { status: 400 }
     );
   }
 
   if (courtNumber > segment.court_count) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "선택한 면 번호가 올바르지 않습니다.",
-        },
-        { status: 400 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "선택한 면 번호가 올바르지 않습니다.",
+      },
+      { status: 400 }
     );
   }
 
@@ -424,15 +385,12 @@ export async function POST(request: Request) {
   });
 
   if (!isValidSlot) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "시간표에 없는 예약 시간입니다.",
-        },
-        { status: 400 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "시간표에 없는 예약 시간입니다.",
+      },
+      { status: 400 }
     );
   }
 
@@ -453,6 +411,8 @@ export async function POST(request: Request) {
       student_id: studentId,
       password_hash: passwordHash,
       is_extra_reservation: isExtraReservation,
+      created_device_id: deviceId,
+      created_user_agent: userAgent,
     })
     .select("id")
     .single();
@@ -460,62 +420,32 @@ export async function POST(request: Request) {
   if (error) {
     if (error.code === "23505") {
       if (error.message.includes("reservations_unique_active_student")) {
-        return withDeviceCookie(
-          NextResponse.json(
-            {
-              ok: false,
-              message: "기존 예약 내역이 있습니다.",
-            },
-            { status: 409 }
-          ),
-          deviceId
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "기존 예약 내역이 있습니다.",
+          },
+          { status: 409 }
         );
       }
 
-      return withDeviceCookie(
-        NextResponse.json(
-          {
-            ok: false,
-            message: "이미 예약된 시간입니다. 다른 시간을 선택해주세요.",
-          },
-          { status: 409 }
-        ),
-        deviceId
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "이미 예약된 시간입니다. 다른 시간을 선택해주세요.",
+        },
+        { status: 409 }
       );
     }
 
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "예약 저장에 실패했습니다.",
-          error: error.message,
-        },
-        { status: 500 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "예약 저장에 실패했습니다.",
+        error: error.message,
+      },
+      { status: 500 }
     );
-  }
-
-  const { error: logError } = await supabaseAdmin
-    .from("reservation_audit_logs")
-    .insert({
-      action: "create",
-      reservation_id: data.id,
-      batch_id: batchId,
-      group_id: groupId,
-      segment_id: segmentId,
-      slot_start_time: slotStartTime,
-      slot_end_time: slotEndTime,
-      court_number: courtNumber,
-      reserver_name: reserverName,
-      student_id: studentId,
-      device_id: deviceId,
-      user_agent: userAgent,
-    });
-
-  if (logError) {
-    console.error("reservation audit log insert failed", logError);
   }
 
   return withDeviceCookie(

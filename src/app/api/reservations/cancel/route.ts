@@ -41,13 +41,21 @@ function getCookieValue(cookieHeader: string | null, name: string) {
   return null;
 }
 
-function getOrCreateDeviceId(request: Request) {
+function isValidDeviceId(deviceId: string | null): deviceId is string {
+  if (!deviceId) return false;
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    deviceId
+  );
+}
+
+function getOrCreateDeviceId(request: Request): string {
   const existingDeviceId = getCookieValue(
     request.headers.get("cookie"),
     DEVICE_COOKIE_NAME
   );
 
-  if (existingDeviceId) {
+  if (isValidDeviceId(existingDeviceId)) {
     return existingDeviceId;
   }
 
@@ -78,15 +86,12 @@ export async function POST(request: Request) {
   const password = body.password ?? "";
 
   if (!reservationId || !password) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "예약 정보와 비밀번호를 입력해주세요.",
-        },
-        { status: 400 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "예약 정보와 비밀번호를 입력해주세요.",
+      },
+      { status: 400 }
     );
   }
 
@@ -96,47 +101,23 @@ export async function POST(request: Request) {
     .from("reservations")
     .update({
       cancelled_at: new Date().toISOString(),
+      cancelled_device_id: deviceId,
+      cancelled_user_agent: userAgent,
     })
     .eq("id", reservationId)
     .eq("password_hash", passwordHash)
     .is("cancelled_at", null)
-    .select(
-      "id, batch_id, group_id, segment_id, slot_start_time, slot_end_time, court_number, reserver_name, student_id"
-    )
+    .select("id")
     .single();
 
   if (error || !data) {
-    return withDeviceCookie(
-      NextResponse.json(
-        {
-          ok: false,
-          message: "예약 비밀번호가 올바르지 않습니다.",
-        },
-        { status: 401 }
-      ),
-      deviceId
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "예약 비밀번호가 올바르지 않습니다.",
+      },
+      { status: 401 }
     );
-  }
-
-  const { error: logError } = await supabaseAdmin
-    .from("reservation_audit_logs")
-    .insert({
-      action: "cancel",
-      reservation_id: data.id,
-      batch_id: data.batch_id,
-      group_id: data.group_id,
-      segment_id: data.segment_id,
-      slot_start_time: data.slot_start_time,
-      slot_end_time: data.slot_end_time,
-      court_number: data.court_number,
-      reserver_name: data.reserver_name,
-      student_id: data.student_id,
-      device_id: deviceId,
-      user_agent: userAgent,
-    });
-
-  if (logError) {
-    console.error("reservation audit log insert failed", logError);
   }
 
   return withDeviceCookie(
