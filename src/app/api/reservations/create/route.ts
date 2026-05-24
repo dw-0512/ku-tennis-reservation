@@ -16,6 +16,9 @@ type CreateReservationRequest = {
   password: string;
 };
 
+const DEVICE_COOKIE_NAME = "kutc_device_id";
+const DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
 const dayOffsetMap: Record<string, number> = {
   월요일: 0,
   화요일: 1,
@@ -68,23 +71,6 @@ function getExtraReservationOpenAt(courtDate: string) {
   const previousDate = addDaysToDateString(courtDate, -1);
 
   return new Date(`${previousDate}T22:00:00+09:00`).getTime();
-}
-
-function getKoreaTodayDateString() {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-
-  const parts = formatter.formatToParts(new Date());
-
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  const day = parts.find((part) => part.type === "day")?.value;
-
-  return `${year}-${month}-${day}`;
 }
 
 function getKoreaDateTimeParts() {
@@ -158,7 +144,61 @@ function isValidSlotInSegment({
   );
 }
 
+function getCookieValue(cookieHeader: string | null, name: string) {
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(";");
+
+  for (const cookie of cookies) {
+    const [cookieName, ...valueParts] = cookie.trim().split("=");
+
+    if (cookieName === name) {
+      return decodeURIComponent(valueParts.join("="));
+    }
+  }
+
+  return null;
+}
+
+function isValidDeviceId(deviceId: string | null): deviceId is string {
+  if (!deviceId) return false;
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    deviceId
+  );
+}
+
+function getOrCreateDeviceId(request: Request): string {
+  const existingDeviceId = getCookieValue(
+    request.headers.get("cookie"),
+    DEVICE_COOKIE_NAME
+  );
+
+  if (isValidDeviceId(existingDeviceId)) {
+    return existingDeviceId;
+  }
+
+  return crypto.randomUUID();
+}
+
+function withDeviceCookie(response: NextResponse, deviceId: string) {
+  response.cookies.set({
+    name: DEVICE_COOKIE_NAME,
+    value: deviceId,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: DEVICE_COOKIE_MAX_AGE,
+  });
+
+  return response;
+}
+
 export async function POST(request: Request) {
+  const deviceId = getOrCreateDeviceId(request);
+  const userAgent = request.headers.get("user-agent");
+
   const body = (await request.json()) as CreateReservationRequest;
 
   const batchId = cleanText(body.batchId ?? "");
@@ -181,22 +221,28 @@ export async function POST(request: Request) {
     !studentId ||
     !password
   ) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "예약 정보를 모두 입력해주세요.",
-      },
-      { status: 400 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "예약 정보를 모두 입력해주세요.",
+        },
+        { status: 400 }
+      ),
+      deviceId
     );
   }
 
   if (![1, 2].includes(courtNumber)) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "코트 번호가 올바르지 않습니다.",
-      },
-      { status: 400 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "코트 번호가 올바르지 않습니다.",
+        },
+        { status: 400 }
+      ),
+      deviceId
     );
   }
 
@@ -207,12 +253,15 @@ export async function POST(request: Request) {
     .single();
 
   if (batchError || !batch) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "예약 배너를 찾을 수 없습니다.",
-      },
-      { status: 404 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "예약 배너를 찾을 수 없습니다.",
+        },
+        { status: 404 }
+      ),
+      deviceId
     );
   }
 
@@ -221,22 +270,28 @@ export async function POST(request: Request) {
   const closeAt = new Date(batch.close_at).getTime();
 
   if (now < openAt) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "아직 예약 오픈 전입니다.",
-      },
-      { status: 403 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "아직 예약 오픈 전입니다.",
+        },
+        { status: 403 }
+      ),
+      deviceId
     );
   }
 
   if (now > closeAt) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "예약 가능 시간이 지났습니다.",
-      },
-      { status: 403 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "예약 가능 시간이 지났습니다.",
+        },
+        { status: 403 }
+      ),
+      deviceId
     );
   }
 
@@ -247,59 +302,74 @@ export async function POST(request: Request) {
     .single();
 
   if (groupError || !group) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "코트 그룹을 찾을 수 없습니다.",
-      },
-      { status: 404 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "코트 그룹을 찾을 수 없습니다.",
+        },
+        { status: 404 }
+      ),
+      deviceId
     );
   }
 
   if (group.batch_id !== batchId) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "예약 배너와 코트 정보가 일치하지 않습니다.",
-      },
-      { status: 400 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "예약 배너와 코트 정보가 일치하지 않습니다.",
+        },
+        { status: 400 }
+      ),
+      deviceId
     );
   }
 
   const dayOffset = dayOffsetMap[group.day_name];
 
   if (dayOffset === undefined) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "요일 정보가 올바르지 않습니다.",
-      },
-      { status: 400 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "요일 정보가 올바르지 않습니다.",
+        },
+        { status: 400 }
+      ),
+      deviceId
     );
   }
 
   const courtDate = addDaysToDateString(batch.start_date, dayOffset);
-const { today, currentTime } = getKoreaDateTimeParts();
+  const { today, currentTime } = getKoreaDateTimeParts();
 
-if (courtDate < today) {
-  return NextResponse.json(
-    {
-      ok: false,
-      message: "이미 지난 날짜의 예약입니다.",
-    },
-    { status: 403 }
-  );
-}
+  if (courtDate < today) {
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "이미 지난 날짜의 예약입니다.",
+        },
+        { status: 403 }
+      ),
+      deviceId
+    );
+  }
 
-if (courtDate === today && slotStartTime <= currentTime) {
-  return NextResponse.json(
-    {
-      ok: false,
-      message: "이미 시작된 시간은 예약할 수 없습니다.",
-    },
-    { status: 403 }
-  );
-}
+  if (courtDate === today && slotStartTime <= currentTime) {
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "이미 시작된 시간은 예약할 수 없습니다.",
+        },
+        { status: 403 }
+      ),
+      deviceId
+    );
+  }
 
   const { data: segment, error: segmentError } = await supabaseAdmin
     .from("court_segments")
@@ -308,32 +378,41 @@ if (courtDate === today && slotStartTime <= currentTime) {
     .single();
 
   if (segmentError || !segment) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "해당 시간 구간을 찾을 수 없습니다.",
-      },
-      { status: 404 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "해당 시간 구간을 찾을 수 없습니다.",
+        },
+        { status: 404 }
+      ),
+      deviceId
     );
   }
 
   if (segment.group_id !== groupId) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "코트 정보가 올바르지 않습니다.",
-      },
-      { status: 400 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "코트 정보가 올바르지 않습니다.",
+        },
+        { status: 400 }
+      ),
+      deviceId
     );
   }
 
   if (courtNumber > segment.court_count) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "선택한 면 번호가 올바르지 않습니다.",
-      },
-      { status: 400 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "선택한 면 번호가 올바르지 않습니다.",
+        },
+        { status: 400 }
+      ),
+      deviceId
     );
   }
 
@@ -345,12 +424,15 @@ if (courtDate === today && slotStartTime <= currentTime) {
   });
 
   if (!isValidSlot) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "시간표에 없는 예약 시간입니다.",
-      },
-      { status: 400 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "시간표에 없는 예약 시간입니다.",
+        },
+        { status: 400 }
+      ),
+      deviceId
     );
   }
 
@@ -378,38 +460,70 @@ if (courtDate === today && slotStartTime <= currentTime) {
   if (error) {
     if (error.code === "23505") {
       if (error.message.includes("reservations_unique_active_student")) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message:
-              "기존 예약 내역이 있습니다.",
-          },
-          { status: 409 }
+        return withDeviceCookie(
+          NextResponse.json(
+            {
+              ok: false,
+              message: "기존 예약 내역이 있습니다.",
+            },
+            { status: 409 }
+          ),
+          deviceId
         );
       }
 
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "이미 예약된 시간입니다. 다른 시간을 선택해주세요.",
-        },
-        { status: 409 }
+      return withDeviceCookie(
+        NextResponse.json(
+          {
+            ok: false,
+            message: "이미 예약된 시간입니다. 다른 시간을 선택해주세요.",
+          },
+          { status: 409 }
+        ),
+        deviceId
       );
     }
 
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "예약 저장에 실패했습니다.",
-        error: error.message,
-      },
-      { status: 500 }
+    return withDeviceCookie(
+      NextResponse.json(
+        {
+          ok: false,
+          message: "예약 저장에 실패했습니다.",
+          error: error.message,
+        },
+        { status: 500 }
+      ),
+      deviceId
     );
   }
 
-  return NextResponse.json({
-    ok: true,
-    message: "예약이 완료되었습니다.",
-    reservationId: data.id,
-  });
+  const { error: logError } = await supabaseAdmin
+    .from("reservation_audit_logs")
+    .insert({
+      action: "create",
+      reservation_id: data.id,
+      batch_id: batchId,
+      group_id: groupId,
+      segment_id: segmentId,
+      slot_start_time: slotStartTime,
+      slot_end_time: slotEndTime,
+      court_number: courtNumber,
+      reserver_name: reserverName,
+      student_id: studentId,
+      device_id: deviceId,
+      user_agent: userAgent,
+    });
+
+  if (logError) {
+    console.error("reservation audit log insert failed", logError);
+  }
+
+  return withDeviceCookie(
+    NextResponse.json({
+      ok: true,
+      message: "예약이 완료되었습니다.",
+      reservationId: data.id,
+    }),
+    deviceId
+  );
 }
