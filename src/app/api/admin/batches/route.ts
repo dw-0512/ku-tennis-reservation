@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   const { data: batches, error: batchesError } = await supabaseAdmin
     .from("reservation_batches")
-    .select("id, title, start_date, end_date, open_at, created_at")
+    .select("id, title, start_date, end_date, open_at, display_until, created_at")
     .order("start_date", { ascending: false });
 
   if (batchesError) {
@@ -76,6 +76,7 @@ export async function POST(request: Request) {
       startDate: batch.start_date,
       endDate: batch.end_date,
       openAt: batch.open_at,
+      displayUntil: batch.display_until,
       activeReservationCount,
       canOverwrite: activeReservationCount === 0,
     };

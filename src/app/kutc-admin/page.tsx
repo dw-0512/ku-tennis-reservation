@@ -20,6 +20,7 @@ type SavedBatch = {
   startDate: string;
   endDate: string;
   openAt: string;
+  displayUntil: string;
   activeReservationCount: number;
   canOverwrite: boolean;
 };
@@ -222,16 +223,29 @@ export default function AdminPage() {
   const [courtGroups, setCourtGroups] = useState(initialCourtGroups);
   const [savedBatches, setSavedBatches] = useState<SavedBatch[]>([]);
   const [isLoadingBatches, setIsLoadingBatches] = useState(false);
+  const [showPastBatches, setShowPastBatches] = useState(false);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
   const [selectedReservationBatchTitle, setSelectedReservationBatchTitle] =
-    useState("");
-  const [adminReservations, setAdminReservations] = useState<
-    AdminReservation[]
-  >([]);
+  useState("");
+const [selectedReservationBatchIsPast, setSelectedReservationBatchIsPast] =
+  useState(false);
+const [adminReservations, setAdminReservations] = useState<
+  AdminReservation[]
+>([]);
 const [isLoadingReservations, setIsLoadingReservations] = useState(false);
 
   const selectedWeek =
     weekOptions.find((week) => week.id === selectedWeekId) ?? weekOptions[0];
+
+  const nowTime = Date.now();
+
+  const currentAndUpcomingBatches = savedBatches.filter(
+    (batch) => new Date(batch.displayUntil).getTime() >= nowTime
+  );
+
+  const pastBatches = savedBatches.filter(
+    (batch) => new Date(batch.displayUntil).getTime() < nowTime
+  ); 
 
 useEffect(() => {
   const savedPassword = window.sessionStorage.getItem("kutcAdminPassword");
@@ -475,9 +489,14 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
     setEditingBatchId(null);
     await loadSavedBatches(password);
   }
-  async function loadBatchReservations(batchId: string, batchTitle: string) {
+  async function loadBatchReservations(
+  batchId: string,
+  batchTitle: string,
+  isPastBatch = false
+) {
   setIsLoadingReservations(true);
   setSelectedReservationBatchTitle(batchTitle);
+  setSelectedReservationBatchIsPast(isPastBatch);
 
   const response = await fetch("/api/admin/batches/reservations", {
     method: "POST",
@@ -614,86 +633,154 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
                 이미 저장된 예약 주차와 현재 예약자 수를 확인합니다.
               </p>
 
-              {isLoadingBatches ? (
-                <div className="mt-5 rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
-                  불러오는 중...
+              
+           {isLoadingBatches ? (
+  <div className="mt-5 rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
+    불러오는 중...
+  </div>
+) : savedBatches.length === 0 ? (
+  <div className="mt-5 rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
+    저장된 예약 주차가 없습니다.
+  </div>
+) : (
+  <div className="mt-5 space-y-3">
+    {currentAndUpcomingBatches.length === 0 ? (
+      <div className="rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
+        현재 또는 예정된 예약 주차가 없습니다.
+      </div>
+    ) : (
+      currentAndUpcomingBatches.map((batch) => {
+        const selectable = isWeekSelectable(batch.startDate);
+
+        return (
+          <div
+            key={batch.id}
+            className="rounded-2xl border border-[#E5E5E5] p-4"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-bold text-gray-900">
+                  {batch.title}
+                </p>
+
+                <p className="mt-1 text-sm text-gray-600">
+                  {batch.startDate} ~ {batch.endDate}
+                </p>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  오픈 시간:{" "}
+                  {new Date(batch.openAt).toLocaleString("ko-KR")}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-700">
+                  예약자 {batch.activeReservationCount}명
+                </span>
+
+                <button
+                  onClick={() => loadBatchReservations(batch.id, batch.title, false)}
+                  className="rounded-full bg-white px-3 py-1 text-gray-700 ring-1 ring-gray-300 transition hover:bg-gray-100"
+                >
+                  예약자 확인
+                </button>   
+
+                {batch.activeReservationCount > 0 && (
+                  <span className="rounded-full bg-[#8B0029] px-3 py-1 text-white">
+                    예약자 있음
+                  </span>
+                )}
+
+                {selectable ? (
+                  <button
+                    onClick={() => loadBatchForEdit(batch.id)}
+                    className="rounded-full bg-gray-900 px-3 py-1 text-white transition hover:bg-gray-700"
+                  >
+                    수정하기
+                  </button>
+                ) : (
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-500">
+                    선택 범위 밖
+                  </span>
+                )}
+
+                {batch.activeReservationCount === 0 && (
+                  <button
+                    onClick={() => deleteBatch(batch.id)}
+                    className="rounded-full bg-white px-3 py-1 text-[#8B0029] ring-1 ring-[#8B0029]/30 transition hover:bg-[#8B0029]/10"
+                  >
+                    삭제
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })
+    )}
+
+    {pastBatches.length > 0 ? (
+      <div className="border-t border-gray-100 pt-5">
+        <button
+          type="button"
+          onClick={() => setShowPastBatches((prev) => !prev)}
+          className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-800 ring-1 ring-gray-200 transition hover:bg-gray-200"
+        >
+          {showPastBatches
+            ? "지난 예약 주차 숨기기"
+            : `지난 예약 주차 보기 (${pastBatches.length}개)`}
+        </button>
+
+        {showPastBatches ? (
+          <div className="mt-4 space-y-3">
+            {pastBatches.map((batch) => {
+              const selectable = isWeekSelectable(batch.startDate);
+
+              return (
+                <div
+                  key={batch.id}
+                  className="rounded-2xl border border-[#E5E5E5] bg-gray-50 p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-bold text-gray-900">
+                        {batch.title}
+                      </p>
+
+                      <p className="mt-1 text-sm text-gray-600">
+                        {batch.startDate} ~ {batch.endDate}
+                      </p>
+
+                      <p className="mt-1 text-sm text-gray-500">
+                        오픈 시간:{" "}
+                        {new Date(batch.openAt).toLocaleString("ko-KR")}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+  <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-700">
+    예약자 {batch.activeReservationCount}명
+  </span>
+
+  <button
+    onClick={() =>
+      loadBatchReservations(batch.id, batch.title, true)
+    }
+    className="rounded-full bg-white px-3 py-1 text-gray-700 ring-1 ring-gray-300 transition hover:bg-gray-100"
+  >
+    예약자 확인
+  </button>
+</div>
+                  </div>
                 </div>
-              ) : savedBatches.length === 0 ? (
-                <div className="mt-5 rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
-                  저장된 예약 주차가 없습니다.
-                </div>
-              ) : (
-                <div className="mt-5 space-y-3">
-                  {savedBatches.map((batch) => {
-                    const selectable = isWeekSelectable(batch.startDate);
-
-                    return (
-                      <div
-                        key={batch.id}
-                        className="rounded-2xl border border-[#E5E5E5] p-4"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <p className="font-bold text-gray-900">
-                              {batch.title}
-                            </p>
-
-                            <p className="mt-1 text-sm text-gray-600">
-                              {batch.startDate} ~ {batch.endDate}
-                            </p>
-
-                            <p className="mt-1 text-sm text-gray-500">
-                              오픈 시간:{" "}
-                              {new Date(batch.openAt).toLocaleString("ko-KR")}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-                            <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-700">
-                              예약자 {batch.activeReservationCount}명
-                            </span>
-
-                            <button
-                              onClick={() => loadBatchReservations(batch.id, batch.title)}
-                              className="rounded-full bg-white px-3 py-1 text-gray-700 ring-1 ring-gray-300 transition hover:bg-gray-100"
-                            >
-                              예약자 확인
-                            </button>
-
-                            {batch.activeReservationCount > 0 && (
-                              <span className="rounded-full bg-[#8B0029] px-3 py-1 text-white">
-                                예약자 있음
-                              </span>
-                            )}
-
-                            {selectable ? (
-                              <button
-                                onClick={() => loadBatchForEdit(batch.id)}
-                                className="rounded-full bg-gray-900 px-3 py-1 text-white transition hover:bg-gray-700"
-                              >
-                                수정하기
-                              </button>
-                            ) : (
-                              <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-500">
-                                선택 범위 밖
-                              </span>
-                            )}
-
-                            {batch.activeReservationCount === 0 && (
-                              <button
-                                onClick={() => deleteBatch(batch.id)}
-                                className="rounded-full bg-white px-3 py-1 text-[#8B0029] ring-1 ring-[#8B0029]/30 transition hover:bg-[#8B0029]/10"
-                              >
-                                삭제
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    ) : null}
+  </div>
+)}
             </div>
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
   <h2 className="text-2xl font-bold text-gray-900">
@@ -747,12 +834,14 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
     {new Date(reservation.createdAt).toLocaleString("ko-KR")}
   </p>
 
+  {!selectedReservationBatchIsPast ? (
   <button
     onClick={() => adminCancelReservation(reservation.id)}
     className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/30 transition hover:bg-[#8B0029]/10"
   >
     관리자 취소
   </button>
+) : null}
 </div>
           </div>
         </div>
