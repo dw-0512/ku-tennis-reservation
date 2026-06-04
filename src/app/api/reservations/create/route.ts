@@ -331,15 +331,15 @@ export async function POST(request: Request) {
     );
   }
 
-  if (courtDate === today && slotStartTime <= currentTime) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "이미 시작된 시간은 예약할 수 없습니다.",
-      },
-      { status: 403 }
-    );
-  }
+  if (courtDate === today && slotEndTime <= currentTime) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "이미 종료된 시간은 예약할 수 없습니다.",
+    },
+    { status: 403 }
+  );
+}
 
   const { data: segment, error: segmentError } = await supabaseAdmin
     .from("court_segments")

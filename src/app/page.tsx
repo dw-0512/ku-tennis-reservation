@@ -168,11 +168,11 @@ function getCourtGroupDateLabel(batchStartDate: string, dayName: string) {
 function isClosedSlot({
   batchStartDate,
   dayName,
-  slotStartTime,
+  slotEndTime,
 }: {
   batchStartDate: string;
   dayName: string;
-  slotStartTime: string;
+  slotEndTime: string;
 }) {
   const offset = dayOffsetMap[dayName];
 
@@ -187,7 +187,7 @@ function isClosedSlot({
     return true;
   }
 
-  if (courtDate === today && slotStartTime <= currentTime) {
+  if (courtDate === today && slotEndTime <= currentTime) {
     return true;
   }
 
@@ -530,17 +530,18 @@ export default async function Home() {
                             </h3>
                           </div>
 
-                          <div>
-                            {segments.map((segment) => {
-                              const slots = makeSlots({
-                                groupId: group.id,
-                                segmentId: segment.id,
-                                startTime: segment.start_time,
-                                endTime: segment.end_time,
-                                courtCount: segment.court_count,
-                              });
-
-                              return slots.map((slot, index) => {
+                                                    <div>
+                            {segments
+                              .flatMap((segment) =>
+                                makeSlots({
+                                  groupId: group.id,
+                                  segmentId: segment.id,
+                                  startTime: segment.start_time,
+                                  endTime: segment.end_time,
+                                  courtCount: segment.court_count,
+                                })
+                              )
+                              .map((slot, index) => {
                                 const slotStartTime = formatHour(
                                   slot.startHour
                                 );
@@ -576,34 +577,34 @@ export default async function Home() {
                                             courtNumber,
                                           });
 
-                                        const reservedBy = reservationMap.get(reservationKey);
+                                        const reservedBy =
+                                          reservationMap.get(reservationKey);
 
-const isClosed = isClosedSlot({
-  batchStartDate: batch.start_date,
-  dayName: group.day_name,
-  slotStartTime,
-});
+                                        const isClosed = isClosedSlot({
+                                          batchStartDate: batch.start_date,
+                                          dayName: group.day_name,
+                                          slotEndTime,
+                                        });
 
-return (
-  <ReservationButton
-  key={courtNumber}
-  batchId={batch.id}
-  groupId={slot.groupId}
-  segmentId={slot.segmentId}
-  slotStartTime={slotStartTime}
-  slotEndTime={slotEndTime}
-  courtNumber={courtNumber}
-  courtName={group.court_name}
-  reservedBy={reservedBy}
-  isClosed={isClosed}
-/>
-);
+                                        return (
+                                          <ReservationButton
+                                            key={courtNumber}
+                                            batchId={batch.id}
+                                            groupId={slot.groupId}
+                                            segmentId={slot.segmentId}
+                                            slotStartTime={slotStartTime}
+                                            slotEndTime={slotEndTime}
+                                            courtNumber={courtNumber}
+                                            courtName={group.court_name}
+                                            reservedBy={reservedBy}
+                                            isClosed={isClosed}
+                                          />
+                                        );
                                       })}
                                     </div>
                                   </div>
                                 );
-                              });
-                            })}
+                              })}
                           </div>
                         </section>
                       );
