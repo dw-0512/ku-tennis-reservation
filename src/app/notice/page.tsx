@@ -120,7 +120,7 @@ export default async function NoticePage({ searchParams }: NoticePageProps) {
                 href="/my"
                 className="rounded-full bg-white/10 px-4 py-2 text-white ring-1 ring-white/20 transition hover:bg-white/20"
               >
-                내 예약 확인 및 취소
+                내 예약 확인
               </Link>
 
               <Link

@@ -109,7 +109,7 @@ export default function MyReservationsPage() {
               </p>
 
               <h1 className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">
-                내 예약 확인 및 취소
+                내 예약 확인
               </h1>
             </div>
 
