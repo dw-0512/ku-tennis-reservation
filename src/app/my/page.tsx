@@ -109,7 +109,7 @@ export default function MyReservationsPage() {
               </p>
 
               <h1 className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">
-                내 예약 확인 및 취소
+                예약 확인 및 취소
               </h1>
             </div>
 
@@ -125,7 +125,7 @@ export default function MyReservationsPage() {
                 href="/my"
                 className="rounded-full bg-white px-4 py-2 text-[#8B0029]"
               >
-                내 예약 확인
+                예약 확인
               </Link>
 
               <Link
