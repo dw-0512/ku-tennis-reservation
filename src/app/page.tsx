@@ -486,7 +486,7 @@ export default async function Home() {
                   <p className="text-sm font-bold text-[#8B0029]">예약 일정</p>
 
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <h2 className="break-keep text-2xl font-bold text-gray-900">
                       {batch.title}
                     </h2>
 
