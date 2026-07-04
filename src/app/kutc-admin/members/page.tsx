@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -242,6 +242,41 @@ export default function AdminMembersPage() {
     }
   }
 
+  function getAdmissionYearLabel(studentId: string) {
+  const cleanedStudentId = studentId.trim();
+
+  if (/^20\d{2}/.test(cleanedStudentId)) {
+    return `${cleanedStudentId.slice(2, 4)}학번`;
+  }
+
+  if (/^\d{2}/.test(cleanedStudentId)) {
+    return `${cleanedStudentId.slice(0, 2)}학번`;
+  }
+
+  return "기타";
+}
+
+function groupMembersByAdmissionYear(sectionMembers: Member[]) {
+  const groups: { label: string; members: Member[] }[] = [];
+
+  sectionMembers.forEach((member) => {
+    const label = getAdmissionYearLabel(member.student_id);
+    const lastGroup = groups[groups.length - 1];
+
+    if (lastGroup && lastGroup.label === label) {
+      lastGroup.members.push(member);
+      return;
+    }
+
+    groups.push({
+      label,
+      members: [member],
+    });
+  });
+
+  return groups;
+}
+  
   function renderMemberRow(member: Member) {
     const isEditing = editingMemberId === member.id;
     const statusIsActive = isEditing ? editIsActive : member.is_active;
@@ -340,44 +375,52 @@ export default function AdminMembersPage() {
   }
 
   function renderMemberSection(title: string, sectionMembers: Member[]) {
-    return (
-      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              신입생 학번이 위로 오도록 정렬됩니다.
-            </p>
-          </div>
+  return (
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
 
-          <p className="text-sm font-bold text-[#8B0029]">
-            총 {sectionMembers.length}명
-          </p>
-        </div>
-
-        {sectionMembers.length === 0 ? (
-          <p className="mt-4 text-sm text-gray-600">해당 인원이 없습니다.</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-y border-gray-200 bg-gray-50 text-xs font-bold text-gray-500">
-                  <th className="px-3 py-3">이름</th>
-                  <th className="px-3 py-3">학번</th>
-                  <th className="px-3 py-3">상태</th>
-                  <th className="px-3 py-3">관리</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {sectionMembers.map((member) => renderMemberRow(member))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <p className="text-sm font-bold text-[#8B0029]">
+          총 {sectionMembers.length}명
+        </p>
       </div>
-    );
-  }
+
+      {sectionMembers.length === 0 ? (
+        <p className="mt-4 text-sm text-gray-600">해당 인원이 없습니다.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-y border-gray-200 bg-gray-50 text-xs font-bold text-gray-500">
+                <th className="px-3 py-3">이름</th>
+                <th className="px-3 py-3">학번</th>
+                <th className="px-3 py-3">상태</th>
+                <th className="px-3 py-3">관리</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {groupMembersByAdmissionYear(sectionMembers).map((group) => (
+                <Fragment key={group.label}>
+                  <tr className="border-t border-gray-200 bg-gray-50">
+                    <td
+                      colSpan={4}
+                      className="px-3 py-2 text-xs font-bold text-gray-600"
+                    >
+                      {group.label}
+                    </td>
+                  </tr>
+
+                  {group.members.map((member) => renderMemberRow(member))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
   if (isCheckingAdmin || !isLoggedIn) {
     return null;
