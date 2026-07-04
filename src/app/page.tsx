@@ -454,8 +454,8 @@ export default async function Home() {
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
 
                   {notice.is_pinned ? (
-                    <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-bold text-yellow-800">
-                      고정
+                    <span className="shrink-0 rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
+                      필독
                     </span>
                   ) : null}
 

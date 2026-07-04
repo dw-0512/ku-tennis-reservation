@@ -256,25 +256,40 @@ export default function AdminMembersPage() {
   return "기타";
 }
 
+function getAdmissionYearSortValue(label: string) {
+  const match = label.match(/^(\d{2})학번$/);
+
+  if (!match) {
+    return -1;
+  }
+
+  return Number(match[1]);
+}
+
 function groupMembersByAdmissionYear(sectionMembers: Member[]) {
-  const groups: { label: string; members: Member[] }[] = [];
+  const groupMap = new Map<string, Member[]>();
 
   sectionMembers.forEach((member) => {
     const label = getAdmissionYearLabel(member.student_id);
-    const lastGroup = groups[groups.length - 1];
+    const membersInGroup = groupMap.get(label) ?? [];
 
-    if (lastGroup && lastGroup.label === label) {
-      lastGroup.members.push(member);
-      return;
-    }
-
-    groups.push({
-      label,
-      members: [member],
-    });
+    membersInGroup.push(member);
+    groupMap.set(label, membersInGroup);
   });
 
-  return groups;
+  return Array.from(groupMap.entries())
+    .map(([label, members]) => ({
+      label,
+      members: [...members].sort((a, b) =>
+        a.name.localeCompare(b.name, "ko-KR")
+      ),
+    }))
+    .sort((a, b) => {
+      const aYear = getAdmissionYearSortValue(a.label);
+      const bYear = getAdmissionYearSortValue(b.label);
+
+      return bYear - aYear;
+    });
 }
   
   function renderMemberRow(member: Member) {
