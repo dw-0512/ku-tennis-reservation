@@ -246,7 +246,14 @@ export default function AdminNoticesPage() {
                 href="/kutc-admin"
                 className="rounded-full bg-white/10 px-4 py-2 text-white ring-1 ring-white/20 transition hover:bg-white/20"
               >
-                예약 관리로 돌아가기
+                예약 관리
+              </Link>
+
+              <Link
+                href="/kutc-admin/members"
+                className="rounded-full bg-white/10 px-4 py-2 text-white ring-1 ring-white/20 transition hover:bg-white/20"
+              >
+                동아리원 관리
               </Link>
             </div>
           </div>

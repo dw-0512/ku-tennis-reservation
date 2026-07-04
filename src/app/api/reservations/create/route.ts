@@ -46,6 +46,10 @@ function cleanText(value: string) {
   return value.trim();
 }
 
+function cleanStudentId(value: string) {
+  return value.trim().replace(/\s/g, "");
+}
+
 function normalizeTime(time: string) {
   return time.slice(0, 5);
 }
@@ -207,7 +211,7 @@ export async function POST(request: Request) {
   const slotStartTime = normalizeTime(cleanText(body.slotStartTime ?? ""));
   const slotEndTime = normalizeTime(cleanText(body.slotEndTime ?? ""));
   const reserverName = cleanText(body.reserverName ?? "");
-  const studentId = cleanText(body.studentId ?? "");
+  const studentId = cleanStudentId(body.studentId ?? "");
   const password = body.password ?? "";
   const courtNumber = Number(body.courtNumber);
 
@@ -239,6 +243,34 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  const { data: clubMember, error: clubMemberError } = await supabaseAdmin
+  .from("club_members")
+  .select("id, is_active")
+  .eq("student_id", studentId)
+  .maybeSingle();
+
+if (clubMemberError) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "동아리원 확인 중 오류가 발생했습니다.",
+      error: clubMemberError.message,
+    },
+    { status: 500 }
+  );
+}
+
+if (!clubMember || !clubMember.is_active) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message:
+        "예약 가능한 동아리원 정보가 확인되지 않았습니다.",
+    },
+    { status: 403 }
+  );
+}
 
   const { data: batch, error: batchError } = await supabaseAdmin
     .from("reservation_batches")
