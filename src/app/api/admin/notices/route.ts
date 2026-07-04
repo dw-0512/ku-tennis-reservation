@@ -10,6 +10,7 @@ type NoticeRequest = {
   title?: string;
   content?: string;
   isPublished?: boolean;
+  isPinned?: boolean;
 };
 
 function cleanText(value: string) {
@@ -39,7 +40,10 @@ export async function POST(request: Request) {
   if (action === "list") {
     const { data, error } = await supabaseAdmin
       .from("notices")
-      .select("id, title, content, is_published, created_at, updated_at")
+      .select(
+        "id, title, content, is_published, is_pinned, created_at, updated_at"
+      )
+      .order("is_pinned", { ascending: false })
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -63,6 +67,7 @@ export async function POST(request: Request) {
     const title = cleanText(body.title ?? "");
     const content = cleanText(body.content ?? "");
     const isPublished = body.isPublished ?? true;
+    const isPinned = body.isPinned ?? false;
 
     if (!title || !content) {
       return NextResponse.json(
@@ -78,6 +83,7 @@ export async function POST(request: Request) {
       title,
       content,
       is_published: isPublished,
+      is_pinned: isPinned,
     });
 
     if (error) {
@@ -102,6 +108,7 @@ export async function POST(request: Request) {
     const title = cleanText(body.title ?? "");
     const content = cleanText(body.content ?? "");
     const isPublished = body.isPublished ?? true;
+    const isPinned = body.isPinned ?? false;
 
     if (!noticeId) {
       return NextResponse.json(
@@ -129,6 +136,7 @@ export async function POST(request: Request) {
         title,
         content,
         is_published: isPublished,
+        is_pinned: isPinned,
         updated_at: new Date().toISOString(),
       })
       .eq("id", noticeId);

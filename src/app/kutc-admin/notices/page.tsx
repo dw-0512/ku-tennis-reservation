@@ -9,6 +9,7 @@ type Notice = {
   title: string;
   content: string;
   is_published: boolean;
+  is_pinned: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -38,6 +39,7 @@ export default function AdminNoticesPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isPublished, setIsPublished] = useState(true);
+  const [isPinned, setIsPinned] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -146,11 +148,13 @@ export default function AdminNoticesPage() {
         title,
         content,
         isPublished,
+        isPinned,
       });
 
       setTitle("");
       setContent("");
       setIsPublished(true);
+      setIsPinned(false);
       setEditingNoticeId(null);
       setMessage(
         editingNoticeId
@@ -204,6 +208,7 @@ export default function AdminNoticesPage() {
     setTitle(notice.title);
     setContent(notice.content);
     setIsPublished(notice.is_published);
+    setIsPinned(notice.is_pinned);
     setMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -213,6 +218,7 @@ export default function AdminNoticesPage() {
     setTitle("");
     setContent("");
     setIsPublished(true);
+    setIsPinned(false);
     setMessage("");
   }
 
@@ -270,15 +276,27 @@ export default function AdminNoticesPage() {
               className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#8B0029] focus:ring-2 focus:ring-[#8B0029]/20"
             />
 
-            <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-              <input
-                type="checkbox"
-                checked={isPublished}
-                onChange={(event) => setIsPublished(event.target.checked)}
-                className="h-4 w-4"
-              />
-              공개하기
-            </label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isPublished}
+                  onChange={(event) => setIsPublished(event.target.checked)}
+                  className="h-4 w-4"
+                />
+                공개하기
+              </label>
+
+              <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isPinned}
+                  onChange={(event) => setIsPinned(event.target.checked)}
+                  className="h-4 w-4"
+                />
+                상단 고정 공지
+              </label>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <button
@@ -340,6 +358,12 @@ export default function AdminNoticesPage() {
                         <h3 className="text-lg font-bold text-gray-900">
                           {notice.title}
                         </h3>
+
+                        {notice.is_pinned ? (
+                          <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs font-bold text-yellow-800">
+                            고정
+                          </span>
+                        ) : null}
 
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-bold ${

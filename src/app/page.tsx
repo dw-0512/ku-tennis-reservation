@@ -45,6 +45,7 @@ type DbReservation = {
 type NoticePreview = {
   id: string;
   title: string;
+  is_pinned: boolean;
   created_at: string;
 };
 
@@ -320,10 +321,11 @@ async function getNextOpenAt() {
 async function getNoticePreviews() {
   const { data, error } = await supabaseAdmin
     .from("notices")
-    .select("id, title, created_at")
+    .select("id, title, is_pinned, created_at")
     .eq("is_published", true)
+    .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(3);
+    .limit(4);
 
   if (error) {
     return [];
@@ -451,7 +453,13 @@ export default async function Home() {
                 >
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
 
-                  <p className="min-w-0 truncate font-bold text-gray-900">
+                  {notice.is_pinned ? (
+                    <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-bold text-yellow-800">
+                      고정
+                    </span>
+                  ) : null}
+
+                  <p className="min-w-0 flex-1 truncate font-bold text-gray-900">
                     {notice.title}
                   </p>
 
