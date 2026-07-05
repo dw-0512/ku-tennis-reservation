@@ -27,15 +27,23 @@ type RawReservation = {
   court_groups:
     | {
         day_name: string;
-        court_date: string;
         court_name: string;
       }
     | {
         day_name: string;
-        court_date: string;
         court_name: string;
       }[]
     | null;
+};
+
+const dayOffsetMap: Record<string, number> = {
+  월요일: 0,
+  화요일: 1,
+  수요일: 2,
+  목요일: 3,
+  금요일: 4,
+  토요일: 5,
+  일요일: 6,
 };
 
 function cleanText(value: string) {
@@ -60,6 +68,25 @@ function getFirstItem<T>(value: T | T[] | null): T | null {
   }
 
   return value;
+}
+
+function addDaysToDateString(dateString: string, days: number) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getCourtDate(batchStartDate: string, dayName: string) {
+  const offset = dayOffsetMap[dayName];
+
+  if (offset === undefined) {
+    return null;
+  }
+
+  return addDaysToDateString(batchStartDate, offset);
 }
 
 function getSlotEndTimeInKst(courtDate: string, slotEndTime: string) {
@@ -100,7 +127,6 @@ export async function POST(request: Request) {
       ),
       court_groups (
         day_name,
-        court_date,
         court_name
       )
     `
@@ -128,12 +154,18 @@ export async function POST(request: Request) {
     const batch = getFirstItem(reservation.reservation_batches);
     const courtGroup = getFirstItem(reservation.court_groups);
 
-    if (!courtGroup?.court_date) {
+    if (!batch || !courtGroup) {
+      return [];
+    }
+
+    const courtDate = getCourtDate(batch.start_date, courtGroup.day_name);
+
+    if (!courtDate) {
       return [];
     }
 
     const slotEndTime = getSlotEndTimeInKst(
-      courtGroup.court_date,
+      courtDate,
       reservation.slot_end_time
     );
 
@@ -144,9 +176,9 @@ export async function POST(request: Request) {
     return [
       {
         id: reservation.id,
-        title: batch?.title ?? "코트예약",
+        title: batch.title ?? "코트예약",
         date: courtGroup.day_name ?? "",
-        courtDate: courtGroup.court_date,
+        courtDate,
         courtName: courtGroup.court_name ?? "",
         time: `${normalizeTime(reservation.slot_start_time)} ~ ${normalizeTime(
           reservation.slot_end_time
