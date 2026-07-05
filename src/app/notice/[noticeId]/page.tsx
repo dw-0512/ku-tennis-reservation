@@ -111,7 +111,7 @@ export default async function NoticeDetailPage({
           공지사항 목록으로
         </Link>
 
-        <article className="mt-5 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-[#E5E5E5]">
+        <article className="mt-5 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
           <div className="flex flex-wrap items-center gap-2">
             {notice.is_pinned ? (
               <span className="rounded-full bg-[#8B0029]/10 px-2 py-1 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
@@ -126,17 +126,17 @@ export default async function NoticeDetailPage({
             ) : null}
           </div>
 
-          <h2 className="mt-3 break-keep text-2xl font-bold leading-snug text-gray-900 sm:text-3xl">
+          <h2 className="mt-3 break-keep text-xl font-bold leading-snug text-gray-900 sm:text-2xl">
             {notice.title}
-          </h2>
+        </h2>
 
           <p className="mt-2 text-sm font-semibold text-gray-500">
             {formatKoreanDateTime(notice.created_at)}
           </p>
 
-          <div className="mt-6 whitespace-pre-wrap break-keep text-sm leading-7 text-gray-800 sm:text-base">
+          <div className="mt-5 whitespace-pre-wrap break-keep text-sm leading-6 text-gray-800">
             {notice.content}
-          </div>
+            </div>
         </article>
       </section>
     </main>

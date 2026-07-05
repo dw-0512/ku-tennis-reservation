@@ -19,7 +19,7 @@ type NoticePageProps = {
   }>;
 };
 
-const NOTICES_PER_PAGE = 3;
+const NOTICES_PER_PAGE = 10;
 
 function formatKoreanDateTime(dateString: string) {
   const formatter = new Intl.DateTimeFormat("ko-KR", {
@@ -110,29 +110,29 @@ function NoticeArticle({ notice }: { notice: Notice }) {
   return (
     <Link
       href={`/notice/${notice.id}`}
-      className="group block rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5] transition hover:bg-gray-50"
+      className="group block rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-[#E5E5E5] transition hover:bg-gray-50"
     >
       <article>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {notice.is_pinned ? (
-              <span className="shrink-0 rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
+              <span className="shrink-0 rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-[11px] font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
                 필독
               </span>
             ) : null}
 
             {isNewNotice(notice.created_at) && (
-              <span className="shrink-0 rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
+              <span className="shrink-0 rounded-full bg-[#8B0029] px-2 py-0.5 text-[11px] font-bold text-white">
                 N
               </span>
             )}
 
-            <h2 className="min-w-0 break-keep text-lg font-bold text-gray-900 transition group-hover:text-[#8B0029] sm:text-xl">
+            <h2 className="min-w-0 break-keep text-sm font-bold text-gray-900 transition group-hover:text-[#8B0029] sm:text-base">
               {notice.title}
             </h2>
           </div>
 
-          <time className="shrink-0 text-xs font-bold text-gray-500">
+          <time className="shrink-0 text-[11px] font-bold text-gray-500">
             {formatKoreanDateTime(notice.created_at)}
           </time>
         </div>
@@ -208,7 +208,7 @@ export default async function NoticePage({ searchParams }: NoticePageProps) {
         ) : (
           <>
             {pinnedNotices.length > 0 ? (
-              <div className="mb-6 space-y-4">
+              <div className="mb-4 space-y-2">
                 {pinnedNotices.map((notice) => (
                   <NoticeArticle key={notice.id} notice={notice} />
                 ))}
@@ -216,7 +216,7 @@ export default async function NoticePage({ searchParams }: NoticePageProps) {
             ) : null}
 
             {notices.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {notices.map((notice) => (
                   <NoticeArticle key={notice.id} notice={notice} />
                 ))}

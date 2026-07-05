@@ -447,12 +447,12 @@ export default async function Home() {
         </Link>
       </div>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 space-y-1">
         {noticePreviews.map((notice) => (
           <Link
             key={notice.id}
             href={`/notice/${notice.id}`}
-            className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm transition hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-lg text-sm transition hover:bg-gray-50"
           >
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
 
