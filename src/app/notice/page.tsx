@@ -108,37 +108,36 @@ function getPageHref(page: number) {
 
 function NoticeArticle({ notice }: { notice: Notice }) {
   return (
-    <article className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-[#E5E5E5]">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          {notice.is_pinned ? (
-            <span className="rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
-              필독
-            </span>
-          ) : null}
+    <Link
+      href={`/notice/${notice.id}`}
+      className="group block rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5] transition hover:bg-gray-50"
+    >
+      <article>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {notice.is_pinned ? (
+              <span className="shrink-0 rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
+                필독
+              </span>
+            ) : null}
 
-          {isNewNotice(notice.created_at) && (
-            <span className="rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
-              N
-            </span>
-          )}
+            {isNewNotice(notice.created_at) && (
+              <span className="shrink-0 rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
+                N
+              </span>
+            )}
 
-          <Link href={`/notice/${notice.id}`}>
-            <h2 className="break-keep text-xl font-bold text-gray-900 transition hover:text-[#8B0029]">
+            <h2 className="min-w-0 break-keep text-lg font-bold text-gray-900 transition group-hover:text-[#8B0029] sm:text-xl">
               {notice.title}
             </h2>
-          </Link>
+          </div>
+
+          <time className="shrink-0 text-xs font-bold text-gray-500">
+            {formatKoreanDateTime(notice.created_at)}
+          </time>
         </div>
-
-        <time className="text-xs font-bold text-gray-500">
-          {formatKoreanDateTime(notice.created_at)}
-        </time>
-      </div>
-
-      <div className="mt-4 whitespace-pre-wrap break-keep text-sm leading-7 text-gray-700">
-        {notice.content}
-      </div>
-    </article>
+      </article>
+    </Link>
   );
 }
 

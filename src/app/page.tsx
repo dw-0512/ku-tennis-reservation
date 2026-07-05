@@ -434,49 +434,49 @@ export default async function Home() {
       </section>
 
             {noticePreviews.length > 0 ? (
-        <section className="mx-auto max-w-6xl px-5 pt-6">
+  <section className="mx-auto max-w-6xl px-5 pt-6">
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-bold text-[#8B0029]">공지사항</p>
+
+        <Link
+          href="/notice"
+          className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700 transition hover:bg-gray-200"
+        >
+          전체 보기
+        </Link>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {noticePreviews.map((notice) => (
           <Link
-            href="/notice"
-            className="block rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5] transition hover:shadow-md"
+            key={notice.id}
+            href={`/notice/${notice.id}`}
+            className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm transition hover:bg-gray-50"
           >
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-bold text-[#8B0029]">공지사항</p>
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
 
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700">
-                전체 보기
+            {notice.is_pinned ? (
+              <span className="shrink-0 rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
+                필독
               </span>
-            </div>
+            ) : null}
 
-            <div className="mt-3 space-y-2">
-              {noticePreviews.map((notice) => (
-                <Link
-                  key={notice.id}
-                  href={`/notice/${notice.id}`}
-                  className="flex items-center gap-2 rounded-lg text-sm transition hover:bg-gray-50"
-                >
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
+            <p className="min-w-0 flex-1 truncate font-bold text-gray-900">
+              {notice.title}
+            </p>
 
-                  {notice.is_pinned ? (
-                    <span className="shrink-0 rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
-                      필독
-                    </span>
-                  ) : null}
-
-                  <p className="min-w-0 flex-1 truncate font-bold text-gray-900">
-                    {notice.title}
-                  </p>
-
-                  {isNewNotice(notice.created_at) ? (
-                    <span className="shrink-0 rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
-                      N
-                    </span>
-                  ) : null}
-                </Link>
-              ))}
-            </div>
+            {isNewNotice(notice.created_at) ? (
+              <span className="shrink-0 rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
+                N
+              </span>
+            ) : null}
           </Link>
-        </section>
-      ) : null}
+        ))}
+      </div>
+    </div>
+  </section>
+) : null}
 
       <section className="mx-auto max-w-6xl px-5 py-6">
         {batches.length === 0 ? (
