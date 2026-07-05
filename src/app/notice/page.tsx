@@ -19,7 +19,7 @@ type NoticePageProps = {
   }>;
 };
 
-const NOTICES_PER_PAGE = 10;
+const NOTICES_PER_PAGE = 12;
 
 function formatKoreanDateTime(dateString: string) {
   const formatter = new Intl.DateTimeFormat("ko-KR", {

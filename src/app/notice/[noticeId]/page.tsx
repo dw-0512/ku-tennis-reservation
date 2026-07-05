@@ -42,6 +42,22 @@ function isNewNotice(dateString: string) {
   return now - createdAt <= oneDay;
 }
 
+function renderBoldText(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return (
+        <strong key={index} className="font-bold text-gray-950">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    return part;
+  });
+}
+
 export default async function NoticeDetailPage({
   params,
 }: NoticeDetailPageProps) {
@@ -134,8 +150,8 @@ export default async function NoticeDetailPage({
             {formatKoreanDateTime(notice.created_at)}
           </p>
 
-          <div className="mt-5 whitespace-pre-wrap break-keep text-sm leading-6 text-gray-800">
-            {notice.content}
+            <div className="mt-5 whitespace-pre-wrap break-keep text-sm leading-6 text-gray-800">
+                {renderBoldText(notice.content)}
             </div>
         </article>
       </section>

@@ -447,31 +447,31 @@ export default async function Home() {
         </Link>
       </div>
 
-      <div className="mt-3 space-y-1">
+      <div className="mt-3 space-y-2">
         {noticePreviews.map((notice) => (
           <Link
-            key={notice.id}
-            href={`/notice/${notice.id}`}
-            className="flex items-center gap-2 rounded-lg text-sm transition hover:bg-gray-50"
-          >
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
+              key={notice.id}
+              href={`/notice/${notice.id}`}
+              className="flex items-center gap-2 text-sm"
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
 
-            {notice.is_pinned ? (
-              <span className="shrink-0 rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
-                필독
-              </span>
-            ) : null}
+              {notice.is_pinned ? (
+                <span className="shrink-0 rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
+                  필독
+                </span>
+              ) : null}
 
-            <p className="min-w-0 flex-1 truncate font-bold text-gray-900">
-              {notice.title}
-            </p>
+              <p className="min-w-0 flex-1 truncate font-bold text-gray-900">
+                {notice.title}
+              </p>
 
-            {isNewNotice(notice.created_at) ? (
-              <span className="shrink-0 rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
-                N
-              </span>
-            ) : null}
-          </Link>
+              {isNewNotice(notice.created_at) ? (
+                <span className="shrink-0 rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
+                  N
+                </span>
+              ) : null}
+            </Link>
         ))}
       </div>
     </div>
