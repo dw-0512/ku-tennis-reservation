@@ -46,6 +46,7 @@ type NoticePreview = {
   id: string;
   title: string;
   is_pinned: boolean;
+  pinned_at: string | null;
   created_at: string;
 };
 
@@ -321,9 +322,10 @@ async function getNextOpenAt() {
 async function getNoticePreviews() {
   const { data, error } = await supabaseAdmin
     .from("notices")
-    .select("id, title, is_pinned, created_at")
+    .select("id, title, is_pinned, pinned_at, created_at")
     .eq("is_published", true)
     .order("is_pinned", { ascending: false })
+    .order("pinned_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(4);
 
@@ -447,9 +449,10 @@ export default async function Home() {
 
             <div className="mt-3 space-y-2">
               {noticePreviews.map((notice) => (
-                <div
+                <Link
                   key={notice.id}
-                  className="flex items-center gap-2 text-sm"
+                  href={`/notice/${notice.id}`}
+                  className="flex items-center gap-2 rounded-lg text-sm transition hover:bg-gray-50"
                 >
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B0029]" />
 
@@ -468,7 +471,7 @@ export default async function Home() {
                       N
                     </span>
                   ) : null}
-                </div>
+                </Link>
               ))}
             </div>
           </Link>

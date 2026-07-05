@@ -7,6 +7,8 @@ type Notice = {
   id: string;
   title: string;
   content: string;
+  is_pinned: boolean;
+  pinned_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -52,14 +54,33 @@ function getPageNumber(page?: string) {
   return pageNumber;
 }
 
+async function getPinnedNotices() {
+  const { data, error } = await supabaseAdmin
+    .from("notices")
+    .select("id, title, content, is_pinned, pinned_at, created_at, updated_at")
+    .eq("is_published", true)
+    .eq("is_pinned", true)
+    .order("pinned_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []) as Notice[];
+}
+
 async function getPublishedNotices(page: number) {
   const from = (page - 1) * NOTICES_PER_PAGE;
   const to = from + NOTICES_PER_PAGE - 1;
 
   const { data, error, count } = await supabaseAdmin
     .from("notices")
-    .select("id, title, content, created_at, updated_at", { count: "exact" })
+    .select("id, title, content, is_pinned, pinned_at, created_at, updated_at", {
+      count: "exact",
+    })
     .eq("is_published", true)
+    .eq("is_pinned", false)
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -85,13 +106,53 @@ function getPageHref(page: number) {
   return `/notice?page=${page}`;
 }
 
+function NoticeArticle({ notice }: { notice: Notice }) {
+  return (
+    <article className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-[#E5E5E5]">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          {notice.is_pinned ? (
+            <span className="rounded-full bg-[#8B0029]/10 px-2 py-0.5 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/20">
+              필독
+            </span>
+          ) : null}
+
+          {isNewNotice(notice.created_at) && (
+            <span className="rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
+              N
+            </span>
+          )}
+
+          <Link href={`/notice/${notice.id}`}>
+            <h2 className="break-keep text-xl font-bold text-gray-900 transition hover:text-[#8B0029]">
+              {notice.title}
+            </h2>
+          </Link>
+        </div>
+
+        <time className="text-xs font-bold text-gray-500">
+          {formatKoreanDateTime(notice.created_at)}
+        </time>
+      </div>
+
+      <div className="mt-4 whitespace-pre-wrap break-keep text-sm leading-7 text-gray-700">
+        {notice.content}
+      </div>
+    </article>
+  );
+}
+
 export default async function NoticePage({ searchParams }: NoticePageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const currentPage = getPageNumber(resolvedSearchParams.page);
 
+  const pinnedNotices = await getPinnedNotices();
+
   const { notices, totalCount, totalPages } = await getPublishedNotices(
     currentPage
   );
+
+  const hasNoNotices = pinnedNotices.length === 0 && totalCount === 0;
 
   return (
     <main className="min-h-screen bg-[#F8F8F8]">
@@ -135,7 +196,7 @@ export default async function NoticePage({ searchParams }: NoticePageProps) {
       </section>
 
       <section className="mx-auto max-w-6xl px-5 py-6">
-        {totalCount === 0 ? (
+        {hasNoNotices ? (
           <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-[#E5E5E5]">
             <h2 className="text-2xl font-bold text-gray-900">
               등록된 공지사항이 없습니다
@@ -147,36 +208,21 @@ export default async function NoticePage({ searchParams }: NoticePageProps) {
           </div>
         ) : (
           <>
-            <div className="space-y-4">
-              {notices.map((notice) => (
-                <article
-                  key={notice.id}
-                  className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-[#E5E5E5]"
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {isNewNotice(notice.created_at) && (
-                        <span className="rounded-full bg-[#8B0029] px-2 py-0.5 text-xs font-bold text-white">
-                          N
-                        </span>
-                      )}
+            {pinnedNotices.length > 0 ? (
+              <div className="mb-6 space-y-4">
+                {pinnedNotices.map((notice) => (
+                  <NoticeArticle key={notice.id} notice={notice} />
+                ))}
+              </div>
+            ) : null}
 
-                      <h2 className="text-xl font-bold text-gray-900">
-                        {notice.title}
-                      </h2>
-                    </div>
-
-                    <time className="text-xs font-bold text-gray-500">
-                      {formatKoreanDateTime(notice.created_at)}
-                    </time>
-                  </div>
-
-                  <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-gray-700">
-                    {notice.content}
-                  </div>
-                </article>
-              ))}
-            </div>
+            {notices.length > 0 ? (
+              <div className="space-y-4">
+                {notices.map((notice) => (
+                  <NoticeArticle key={notice.id} notice={notice} />
+                ))}
+              </div>
+            ) : null}
 
             {totalPages > 1 && (
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm font-bold">

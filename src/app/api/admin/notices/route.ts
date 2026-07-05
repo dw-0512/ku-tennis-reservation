@@ -13,6 +13,11 @@ type NoticeRequest = {
   isPinned?: boolean;
 };
 
+type ExistingNoticeForPin = {
+  is_pinned: boolean;
+  pinned_at: string | null;
+};
+
 function cleanText(value: string) {
   return value.trim();
 }
@@ -41,9 +46,10 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from("notices")
       .select(
-        "id, title, content, is_published, is_pinned, created_at, updated_at"
+        "id, title, content, is_published, is_pinned, pinned_at, created_at, updated_at"
       )
       .order("is_pinned", { ascending: false })
+      .order("pinned_at", { ascending: true })
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -84,6 +90,7 @@ export async function POST(request: Request) {
       content,
       is_published: isPublished,
       is_pinned: isPinned,
+      pinned_at: isPinned ? new Date().toISOString() : null,
     });
 
     if (error) {
@@ -130,6 +137,28 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: existingNotice, error: existingNoticeError } =
+      await supabaseAdmin
+        .from("notices")
+        .select("is_pinned, pinned_at")
+        .eq("id", noticeId)
+        .single<ExistingNoticeForPin>();
+
+    if (existingNoticeError || !existingNotice) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "수정할 공지사항을 찾을 수 없습니다.",
+          error: existingNoticeError?.message,
+        },
+        { status: 404 }
+      );
+    }
+
+    const pinnedAt = isPinned
+      ? existingNotice.pinned_at ?? new Date().toISOString()
+      : null;
+
     const { error } = await supabaseAdmin
       .from("notices")
       .update({
@@ -137,6 +166,7 @@ export async function POST(request: Request) {
         content,
         is_published: isPublished,
         is_pinned: isPinned,
+        pinned_at: pinnedAt,
         updated_at: new Date().toISOString(),
       })
       .eq("id", noticeId);
