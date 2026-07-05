@@ -8,6 +8,7 @@ type SearchReservationRequest = {
 
 type RawReservation = {
   id: string;
+  court_date: string;
   slot_start_time: string;
   slot_end_time: string;
   court_number: number;
@@ -40,6 +41,10 @@ function cleanText(value: string) {
   return value.trim();
 }
 
+function cleanStudentId(value: string) {
+  return value.trim().replace(/\s/g, "");
+}
+
 function normalizeTime(time: string) {
   return time.slice(0, 5);
 }
@@ -56,11 +61,17 @@ function getFirstItem<T>(value: T | T[] | null): T | null {
   return value;
 }
 
+function getSlotEndTimeInKst(courtDate: string, slotEndTime: string) {
+  const normalizedEndTime = normalizeTime(slotEndTime);
+
+  return new Date(`${courtDate}T${normalizedEndTime}:00+09:00`).getTime();
+}
+
 export async function POST(request: Request) {
   const body = (await request.json()) as SearchReservationRequest;
 
   const reserverName = cleanText(body.reserverName ?? "");
-  const studentId = cleanText(body.studentId ?? "");
+  const studentId = cleanStudentId(body.studentId ?? "");
 
   if (!reserverName || !studentId) {
     return NextResponse.json(
@@ -77,6 +88,7 @@ export async function POST(request: Request) {
     .select(
       `
       id,
+      court_date,
       slot_start_time,
       slot_end_time,
       court_number,
@@ -108,24 +120,38 @@ export async function POST(request: Request) {
     );
   }
 
-  const rows = (data ?? []) as RawReservation[];
+  const now = Date.now();
+const rows = (data ?? []) as RawReservation[];
 
-  const reservations = rows.map((reservation) => {
-    const batch = getFirstItem(reservation.reservation_batches);
-    const courtGroup = getFirstItem(reservation.court_groups);
+const reservations = rows.flatMap((reservation) => {
+  const batch = getFirstItem(reservation.reservation_batches);
+  const courtGroup = getFirstItem(reservation.court_groups);
+  const slotEndTime = getSlotEndTimeInKst(
+    reservation.court_date,
+    reservation.slot_end_time
+  );
 
-    return {
+  if (slotEndTime <= now) {
+    return [];
+  }
+
+  return [
+    {
       id: reservation.id,
       title: batch?.title ?? "코트예약",
       date: courtGroup?.day_name ?? "",
+      courtDate: reservation.court_date,
       courtName: courtGroup?.court_name ?? "",
       time: `${normalizeTime(reservation.slot_start_time)} ~ ${normalizeTime(
         reservation.slot_end_time
       )}`,
+      slotEndTime: normalizeTime(reservation.slot_end_time),
       courtNumber: reservation.court_number,
       name: reservation.reserver_name,
-    };
-  });
+      canCancel: true,
+    },
+  ];
+});
 
   return NextResponse.json({
     ok: true,

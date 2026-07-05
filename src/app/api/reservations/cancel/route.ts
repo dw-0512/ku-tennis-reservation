@@ -9,6 +9,12 @@ type CancelReservationRequest = {
   password: string;
 };
 
+type ReservationForCancel = {
+  id: string;
+  court_date: string;
+  slot_end_time: string;
+};
+
 const DEVICE_COOKIE_NAME = "kutc_device_id";
 const DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -76,6 +82,12 @@ function withDeviceCookie(response: NextResponse, deviceId: string) {
   return response;
 }
 
+function getSlotEndTimeInKst(courtDate: string, endTime: string) {
+  const normalizedEndTime = endTime.slice(0, 5);
+
+  return new Date(`${courtDate}T${normalizedEndTime}:00+09:00`).getTime();
+}
+
 export async function POST(request: Request) {
   const deviceId = getOrCreateDeviceId(request);
   const userAgent = request.headers.get("user-agent");
@@ -97,6 +109,38 @@ export async function POST(request: Request) {
 
   const passwordHash = hashPassword(password);
 
+  const { data: reservation, error: reservationError } = await supabaseAdmin
+    .from("reservations")
+    .select("id, court_date, slot_end_time")
+    .eq("id", reservationId)
+    .eq("password_hash", passwordHash)
+    .is("cancelled_at", null)
+    .single<ReservationForCancel>();
+
+  if (reservationError || !reservation) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "예약 비밀번호가 올바르지 않습니다.",
+      },
+      { status: 401 }
+    );
+  }
+
+  const slotEndTime = getSlotEndTimeInKst(
+    reservation.court_date,
+    reservation.slot_end_time
+  );
+  if (slotEndTime <= Date.now()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "이미 종료된 예약은 취소할 수 없습니다.",
+      },
+      { status: 400 }
+    );
+  }
+
   const { data, error } = await supabaseAdmin
     .from("reservations")
     .update({
@@ -104,8 +148,7 @@ export async function POST(request: Request) {
       cancelled_device_id: deviceId,
       cancelled_user_agent: userAgent,
     })
-    .eq("id", reservationId)
-    .eq("password_hash", passwordHash)
+    .eq("id", reservation.id)
     .is("cancelled_at", null)
     .select("id")
     .single();
@@ -114,9 +157,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        message: "예약 비밀번호가 올바르지 않습니다.",
+        message: "예약 취소에 실패했습니다.",
       },
-      { status: 401 }
+      { status: 500 }
     );
   }
 

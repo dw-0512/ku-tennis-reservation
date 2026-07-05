@@ -7,10 +7,13 @@ type Reservation = {
   id: string;
   title: string;
   date: string;
+  courtDate: string;
   courtName: string;
   time: string;
+  slotEndTime: string;
   courtNumber: number;
   name: string;
+  canCancel: boolean;
 };
 
 export default function MyReservationsPage() {
@@ -209,18 +212,24 @@ export default function MyReservationsPage() {
                         </p>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          setSelectedReservationId(reservation.id);
-                          setCancelPassword("");
-                        }}
-                        className="rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-gray-700"
-                      >
-                        예약 취소
-                      </button>
+                      {reservation.canCancel ? (
+                        <button
+                          onClick={() => {
+                            setSelectedReservationId(reservation.id);
+                            setCancelPassword("");
+                          }}
+                          className="rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-gray-700"
+                        >
+                          예약 취소
+                        </button>
+                      ) : (
+                        <span className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-bold text-gray-500">
+                          취소 불가
+                        </span>
+                      )}
                     </div>
 
-                    {selectedReservationId === reservation.id && (
+                    {reservation.canCancel && selectedReservationId === reservation.id && (
                       <div className="mt-4 rounded-2xl bg-gray-50 p-4">
                         <label className="text-sm font-bold text-gray-700">
                           예약 비밀번호
