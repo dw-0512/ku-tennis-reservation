@@ -225,6 +225,9 @@ export default function AdminPage() {
   const [isLoadingBatches, setIsLoadingBatches] = useState(false);
   const [showPastBatches, setShowPastBatches] = useState(false);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [selectedReservationBatchId, setSelectedReservationBatchId] = useState<
+  string | null
+>(null);
   const [selectedReservationBatchTitle, setSelectedReservationBatchTitle] =
   useState("");
 const [selectedReservationBatchIsPast, setSelectedReservationBatchIsPast] =
@@ -495,6 +498,7 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
   isPastBatch = false
 ) {
   setIsLoadingReservations(true);
+  setSelectedReservationBatchId(batchId);
   setSelectedReservationBatchTitle(batchTitle);
   setSelectedReservationBatchIsPast(isPastBatch);
 
@@ -556,6 +560,80 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
   );
 
   await loadSavedBatches(password);
+}
+
+function renderReservationList() {
+  return (
+    <div className="mt-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-200">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-gray-900">예약자 목록</h3>
+
+          {selectedReservationBatchTitle ? (
+            <p className="mt-1 text-xs font-semibold text-gray-500">
+              {selectedReservationBatchTitle}
+            </p>
+          ) : null}
+        </div>
+
+        <span className="text-xs font-bold text-gray-500">
+          총 {adminReservations.length}명
+        </span>
+      </div>
+
+      {isLoadingReservations ? (
+        <div className="mt-4 rounded-xl bg-white p-4 text-sm font-semibold text-gray-500">
+          불러오는 중...
+        </div>
+      ) : adminReservations.length === 0 ? (
+        <div className="mt-4 rounded-xl bg-white p-4 text-sm font-semibold text-gray-500">
+          표시할 예약자가 없습니다.
+        </div>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {adminReservations.map((reservation) => (
+            <div
+              key={reservation.id}
+              className="rounded-xl border border-[#E5E5E5] bg-white p-3"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-bold text-gray-900">
+                    {reservation.name} / {reservation.studentId}
+                  </p>
+
+                  <p className="mt-1 text-sm text-gray-600">
+                    {reservation.day} {reservation.courtName}{" "}
+                    {reservation.courtNumber}면
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold text-[#8B0029]">
+                    {reservation.time}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:items-end">
+                  <p className="text-xs font-semibold text-gray-500">
+                    예약 시각:{" "}
+                    {new Date(reservation.createdAt).toLocaleString("ko-KR")}
+                  </p>
+
+                  {!selectedReservationBatchIsPast ? (
+                    <button
+                      onClick={() => adminCancelReservation(reservation.id)}
+                      className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/30 transition hover:bg-[#8B0029]/10"
+                    >
+                      관리자 취소
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 
@@ -721,6 +799,10 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
                 )}
               </div>
             </div>
+
+            {selectedReservationBatchId === batch.id
+              ? renderReservationList()
+              : null}
           </div>
         );
       })
@@ -779,6 +861,10 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
   </button>
 </div>
                   </div>
+
+                  {selectedReservationBatchId === batch.id
+                    ? renderReservationList()
+                    : null}
                 </div>
               );
             })}
@@ -789,73 +875,6 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
   </div>
 )}
             </div>
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
-  <h2 className="text-2xl font-bold text-gray-900">
-    예약자 목록
-  </h2>
-
-  {selectedReservationBatchTitle ? (
-    <p className="mt-1 text-sm text-gray-600">
-      {selectedReservationBatchTitle}
-    </p>
-  ) : (
-    <p className="mt-1 text-sm text-gray-600">
-      저장된 예약 주차에서 예약자 확인을 누르면 목록이 표시됩니다.
-    </p>
-  )}
-
-  {isLoadingReservations ? (
-    <div className="mt-5 rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
-      불러오는 중...
-    </div>
-  ) : adminReservations.length === 0 ? (
-    <div className="mt-5 rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
-      표시할 예약자가 없습니다.
-    </div>
-  ) : (
-    <div className="mt-5 space-y-3">
-      {adminReservations.map((reservation) => (
-        <div
-          key={reservation.id}
-          className="rounded-2xl border border-[#E5E5E5] p-4"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-bold text-gray-900">
-                {reservation.name} / {reservation.studentId}
-              </p>
-
-              <p className="mt-1 text-sm text-gray-600">
-                {reservation.day} {reservation.courtName}{" "}
-                {reservation.courtNumber}면
-              </p>
-
-              <p className="mt-1 text-sm font-semibold text-[#8B0029]">
-                {reservation.time}
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:items-end">
-  <p className="text-xs font-semibold text-gray-500">
-    예약 시각:{" "}
-    {new Date(reservation.createdAt).toLocaleString("ko-KR")}
-  </p>
-
-  {!selectedReservationBatchIsPast ? (
-  <button
-    onClick={() => adminCancelReservation(reservation.id)}
-    className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#8B0029] ring-1 ring-[#8B0029]/30 transition hover:bg-[#8B0029]/10"
-  >
-    관리자 취소
-  </button>
-) : null}
-</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )}
-</div>
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
               <h2 className="text-2xl font-bold text-gray-900">
                 예약 주차 선택
