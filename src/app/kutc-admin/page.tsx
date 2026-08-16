@@ -206,7 +206,7 @@ function createWeekOptions(): WeekOption[] {
     return {
       id: toDateString(monday),
       label: `${year}년 ${month}월 ${weekNumber}주차 (${startLabel} ~ ${endLabel})`,
-      title: `${startLabel} ~ ${endLabel} 코트예약`,
+      title: `${startLabel} ~ ${endLabel} 코트 예약`,
       startDate: toDateString(monday),
       endDate: toDateString(sunday),
       openLabel: `${formatKoreanDate(openSunday)} 일요일 14:00`,
@@ -215,6 +215,29 @@ function createWeekOptions(): WeekOption[] {
 }
 
 const weekOptions = createWeekOptions();
+
+function getTimeValue(time: string) {
+  return Number(time.replace(":", ""));
+}
+
+function sortSegmentsByTime(segments: TimeSegment[]) {
+  return [...segments].sort((a, b) => {
+    const startTimeDiff = getTimeValue(a.startTime) - getTimeValue(b.startTime);
+
+    if (startTimeDiff !== 0) {
+      return startTimeDiff;
+    }
+
+    return getTimeValue(a.endTime) - getTimeValue(b.endTime);
+  });
+}
+
+function sortCourtGroupsBySegmentTime(groups: CourtGroup[]) {
+  return groups.map((group) => ({
+    ...group,
+    segments: sortSegmentsByTime(group.segments),
+  }));
+}
 
 export default function AdminPage() {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -345,19 +368,21 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
           return group;
         }
 
-        return {
-          ...group,
-          segments: group.segments.map((segment) => {
-            if (segment.id !== segmentId) {
-              return segment;
-            }
+        const updatedSegments = group.segments.map((segment) => {
+  if (segment.id !== segmentId) {
+    return segment;
+  }
 
-            return {
-              ...segment,
-              [field]: field === "courtCount" ? Number(value) : value,
-            };
-          }),
-        };
+  return {
+    ...segment,
+    [field]: field === "courtCount" ? Number(value) : value,
+  };
+});
+
+return {
+  ...group,
+  segments: sortSegmentsByTime(updatedSegments),
+};
       })
     );
   }
@@ -377,9 +402,9 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
         };
 
         return {
-          ...group,
-          segments: [...group.segments, newSegment],
-        };
+  ...group,
+  segments: sortSegmentsByTime([...group.segments, newSegment]),
+};
       })
     );
   }
@@ -414,13 +439,13 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        adminPassword: password,
-        editingBatchId,
-        reservationTitle: selectedWeek.title,
-        startDate: selectedWeek.startDate,
-        endDate: selectedWeek.endDate,
-        courtGroups,
-      }),
+  adminPassword: password,
+  editingBatchId,
+  reservationTitle: selectedWeek.title,
+  startDate: selectedWeek.startDate,
+  endDate: selectedWeek.endDate,
+  courtGroups: sortCourtGroupsBySegmentTime(courtGroups),
+}),
     });
 
     const result = await response.json();
@@ -456,7 +481,7 @@ if (editingBatchId === null && isSavedWeek(selectedWeekId, batches)) {
 
     setEditingBatchId(result.batch.id);
     setSelectedWeekId(result.batch.startDate);
-    setCourtGroups(result.batch.courtGroups);
+    setCourtGroups(sortCourtGroupsBySegmentTime(result.batch.courtGroups));
 
     alert("예약 주차를 불러왔습니다. 아래에서 수정 후 전체 저장하기를 눌러주세요.");
   }

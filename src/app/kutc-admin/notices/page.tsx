@@ -262,9 +262,21 @@ export default function AdminNoticesPage() {
 
       <section className="mx-auto max-w-5xl space-y-6 px-5 py-6">
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {editingNoticeId ? "공지사항 수정" : "새 공지사항 작성"}
-          </h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <h2 className="text-2xl font-bold text-gray-900">
+    {editingNoticeId ? "공지사항 수정" : "새 공지사항 작성"}
+  </h2>
+
+  {editingNoticeId ? (
+    <button
+      type="button"
+      onClick={cancelEdit}
+      className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-800 ring-1 ring-gray-200 transition hover:bg-gray-200"
+    >
+      새 공지 작성
+    </button>
+  ) : null}
+</div>
 
           <div className="mt-4 space-y-3">
             <input
@@ -315,15 +327,6 @@ export default function AdminNoticesPage() {
                 {editingNoticeId ? "수정하기" : "등록하기"}
               </button>
 
-              {editingNoticeId ? (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="rounded-xl bg-gray-200 px-5 py-3 text-sm font-bold text-gray-800 transition hover:bg-gray-300"
-                >
-                  수정 취소
-                </button>
-              ) : null}
             </div>
 
             {message ? (
