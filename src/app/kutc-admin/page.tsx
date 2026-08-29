@@ -216,6 +216,30 @@ function createWeekOptions(): WeekOption[] {
 
 const weekOptions = createWeekOptions();
 
+const dayOffsetMap: Record<string, number> = {
+  월요일: 0,
+  화요일: 1,
+  수요일: 2,
+  목요일: 3,
+  금요일: 4,
+  토요일: 5,
+  일요일: 6,
+};
+
+function getCourtGroupDateLabel(startDate: string, dayName: string) {
+  const offset = dayOffsetMap[dayName];
+
+  if (offset === undefined) {
+    return dayName;
+  }
+
+  const [year, month, day] = startDate.split("-").map(Number);
+  const start = new Date(year, month - 1, day);
+  const courtDate = addDays(start, offset);
+
+  return `${formatKoreanDate(courtDate)} ${dayName}`;
+}
+
 function getTimeValue(time: string) {
   return Number(time.replace(":", ""));
 }
@@ -973,8 +997,8 @@ function renderReservationList() {
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm font-bold text-[#8B0029]">
-                          {group.day}
-                        </p>
+  {getCourtGroupDateLabel(selectedWeek.startDate, group.day)}
+</p>
 
                         <h3 className="text-xl font-bold text-gray-900">
                           {group.courtName}
