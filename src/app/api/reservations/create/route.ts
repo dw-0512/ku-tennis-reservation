@@ -107,6 +107,20 @@ function makeSlots(startTime: string, endTime: string) {
 
   let hour = timeToHour(startTime);
   const endHour = timeToHour(endTime);
+  const duration = endHour - hour;
+
+  if (duration <= 0) {
+    return slots;
+  }
+
+  if (duration <= 2) {
+    return [
+      {
+        slotStartTime: formatHour(hour),
+        slotEndTime: formatHour(endHour),
+      },
+    ];
+  }
 
   if (hour % 2 === 1) {
     slots.push({
@@ -124,6 +138,13 @@ function makeSlots(startTime: string, endTime: string) {
     });
 
     hour += 2;
+  }
+
+  if (hour < endHour) {
+    slots.push({
+      slotStartTime: formatHour(hour),
+      slotEndTime: formatHour(endHour),
+    });
   }
 
   return slots;

@@ -233,6 +233,23 @@ function makeSlots({
 
   let hour = timeToHour(startTime);
   const endHour = timeToHour(endTime);
+  const duration = endHour - hour;
+
+  if (duration <= 0) {
+    return slots;
+  }
+
+  if (duration <= 2) {
+    return [
+      {
+        groupId,
+        segmentId,
+        startHour: hour,
+        endHour,
+        courtCount,
+      },
+    ];
+  }
 
   if (hour % 2 === 1) {
     slots.push({
@@ -256,6 +273,16 @@ function makeSlots({
     });
 
     hour += 2;
+  }
+
+  if (hour < endHour) {
+    slots.push({
+      groupId,
+      segmentId,
+      startHour: hour,
+      endHour,
+      courtCount,
+    });
   }
 
   return slots;
