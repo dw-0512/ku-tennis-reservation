@@ -547,7 +547,17 @@ export default async function Home() {
                     )
                     .sort((a, b) => a.display_order - b.display_order)
                     .map((group) => {
-                      const segments = group.court_segments;
+                      const segments = [...group.court_segments].sort((a, b) => {
+  const startTimeDiff = normalizeTime(a.start_time).localeCompare(
+    normalizeTime(b.start_time)
+  );
+
+  if (startTimeDiff !== 0) {
+    return startTimeDiff;
+  }
+
+  return normalizeTime(a.end_time).localeCompare(normalizeTime(b.end_time));
+});
 
                       if (segments.length === 0) {
                         return null;
