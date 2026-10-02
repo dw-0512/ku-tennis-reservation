@@ -18,6 +18,7 @@ type RawCourtGroup = {
   day_name: string;
   court_name: string;
   display_order: number;
+  is_archived: boolean;
   court_segments: RawSegment[];
 };
 
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "관리자 비밀번호가 올바르지 않습니다.",
       },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "불러올 예약 주차가 없습니다.",
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
         day_name,
         court_name,
         display_order,
+        is_archived,
         court_segments (
           id,
           start_time,
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
           court_count
         )
       )
-    `
+    `,
     )
     .eq("id", body.batchId)
     .single();
@@ -88,13 +90,14 @@ export async function POST(request: Request) {
         message: "예약 주차를 불러오지 못했습니다.",
         error: error?.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
   const batch = data as unknown as RawBatch;
 
   const courtGroups = batch.court_groups
+    .filter((group) => !group.is_archived)
     .sort((a, b) => a.display_order - b.display_order)
     .map((group, groupIndex) => ({
       id: groupIndex + 1,
