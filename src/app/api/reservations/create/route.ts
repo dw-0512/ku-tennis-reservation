@@ -1,4 +1,3 @@
-import { getMemberSession } from "@/lib/member-session";
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -12,6 +11,8 @@ type CreateReservationRequest = {
   slotStartTime: string;
   slotEndTime: string;
   courtNumber: number;
+  reserverName: string;
+  studentId: string;
   password: string;
 };
 
@@ -45,8 +46,20 @@ function cleanText(value: string) {
   return value.trim();
 }
 
+function cleanStudentId(value: string) {
+  return value.trim().replace(/\s/g, "");
+}
+
 function normalizeTime(time: string) {
   return time.slice(0, 5);
+}
+
+function timeToHour(time: string) {
+  return Number(time.slice(0, 2));
+}
+
+function formatHour(hour: number) {
+  return `${String(hour).padStart(2, "0")}:00`;
 }
 
 function addDaysToDateString(dateString: string, days: number) {
@@ -56,6 +69,12 @@ function addDaysToDateString(dateString: string, days: number) {
   date.setUTCDate(date.getUTCDate() + days);
 
   return date.toISOString().slice(0, 10);
+}
+
+function getExtraReservationOpenAt(courtDate: string) {
+  const previousDate = addDaysToDateString(courtDate, -1);
+
+  return new Date(`${previousDate}T22:00:00+09:00`).getTime();
 }
 
 function getKoreaDateTimeParts() {
@@ -83,6 +102,73 @@ function getKoreaDateTimeParts() {
   };
 }
 
+function makeSlots(startTime: string, endTime: string) {
+  const slots: { slotStartTime: string; slotEndTime: string }[] = [];
+
+  let hour = timeToHour(startTime);
+  const endHour = timeToHour(endTime);
+  const duration = endHour - hour;
+
+  if (duration <= 0) {
+    return slots;
+  }
+
+  if (duration <= 2) {
+    return [
+      {
+        slotStartTime: formatHour(hour),
+        slotEndTime: formatHour(endHour),
+      },
+    ];
+  }
+
+  if (hour % 2 === 1) {
+    slots.push({
+      slotStartTime: formatHour(hour),
+      slotEndTime: formatHour(hour + 1),
+    });
+
+    hour += 1;
+  }
+
+  while (hour + 2 <= endHour) {
+    slots.push({
+      slotStartTime: formatHour(hour),
+      slotEndTime: formatHour(hour + 2),
+    });
+
+    hour += 2;
+  }
+
+  if (hour < endHour) {
+    slots.push({
+      slotStartTime: formatHour(hour),
+      slotEndTime: formatHour(endHour),
+    });
+  }
+
+  return slots;
+}
+
+function isValidSlotInSegment({
+  segmentStartTime,
+  segmentEndTime,
+  slotStartTime,
+  slotEndTime,
+}: {
+  segmentStartTime: string;
+  segmentEndTime: string;
+  slotStartTime: string;
+  slotEndTime: string;
+}) {
+  const slots = makeSlots(segmentStartTime, segmentEndTime);
+
+  return slots.some(
+    (slot) =>
+      slot.slotStartTime === slotStartTime && slot.slotEndTime === slotEndTime
+  );
+}
+
 function getCookieValue(cookieHeader: string | null, name: string) {
   if (!cookieHeader) return null;
 
@@ -103,14 +189,14 @@ function isValidDeviceId(deviceId: string | null): deviceId is string {
   if (!deviceId) return false;
 
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    deviceId,
+    deviceId
   );
 }
 
 function getOrCreateDeviceId(request: Request): string {
   const existingDeviceId = getCookieValue(
     request.headers.get("cookie"),
-    DEVICE_COOKIE_NAME,
+    DEVICE_COOKIE_NAME
   );
 
   if (isValidDeviceId(existingDeviceId)) {
@@ -135,14 +221,6 @@ function withDeviceCookie(response: NextResponse, deviceId: string) {
 }
 
 export async function POST(request: Request) {
-  const member = await getMemberSession(
-    request.headers.get("x-kutc-member-session"),
-  );
-  if (!member)
-    return NextResponse.json(
-      { ok: false, message: "동아리원 확인이 필요합니다." },
-      { status: 401 },
-    );
   const deviceId = getOrCreateDeviceId(request);
   const userAgent = request.headers.get("user-agent");
 
@@ -153,8 +231,8 @@ export async function POST(request: Request) {
   const segmentId = cleanText(body.segmentId ?? "");
   const slotStartTime = normalizeTime(cleanText(body.slotStartTime ?? ""));
   const slotEndTime = normalizeTime(cleanText(body.slotEndTime ?? ""));
-  const reserverName = member.name;
-  const studentId = member.studentId;
+  const reserverName = cleanText(body.reserverName ?? "");
+  const studentId = cleanStudentId(body.studentId ?? "");
   const password = body.password ?? "";
   const courtNumber = Number(body.courtNumber);
 
@@ -166,14 +244,14 @@ export async function POST(request: Request) {
     !slotEndTime ||
     !reserverName ||
     !studentId ||
-    !password.trim()
+    !password
   ) {
     return NextResponse.json(
       {
         ok: false,
         message: "예약 정보를 모두 입력해주세요.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -183,36 +261,37 @@ export async function POST(request: Request) {
         ok: false,
         message: "코트 번호가 올바르지 않습니다.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   const { data: clubMember, error: clubMemberError } = await supabaseAdmin
-    .from("club_members")
-    .select("id, is_active")
-    .eq("student_id", studentId)
-    .maybeSingle();
+  .from("club_members")
+  .select("id, is_active")
+  .eq("student_id", studentId)
+  .maybeSingle();
 
-  if (clubMemberError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "동아리원 확인 중 오류가 발생했습니다.",
-        error: clubMemberError.message,
-      },
-      { status: 500 },
-    );
-  }
+if (clubMemberError) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "동아리원 확인 중 오류가 발생했습니다.",
+      error: clubMemberError.message,
+    },
+    { status: 500 }
+  );
+}
 
-  if (!clubMember || !clubMember.is_active) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "예약 가능한 동아리원 정보가 확인되지 않았습니다.",
-      },
-      { status: 403 },
-    );
-  }
+if (!clubMember || !clubMember.is_active) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message:
+        "예약 가능한 동아리원 정보가 확인되지 않았습니다.",
+    },
+    { status: 403 }
+  );
+}
 
   const { data: batch, error: batchError } = await supabaseAdmin
     .from("reservation_batches")
@@ -226,7 +305,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "예약 배너를 찾을 수 없습니다.",
       },
-      { status: 404 },
+      { status: 404 }
     );
   }
 
@@ -240,7 +319,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "아직 예약 오픈 전입니다.",
       },
-      { status: 403 },
+      { status: 403 }
     );
   }
 
@@ -250,7 +329,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "예약 가능 시간이 지났습니다.",
       },
-      { status: 403 },
+      { status: 403 }
     );
   }
 
@@ -266,7 +345,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "코트 그룹을 찾을 수 없습니다.",
       },
-      { status: 404 },
+      { status: 404 }
     );
   }
 
@@ -276,7 +355,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "예약 배너와 코트 정보가 일치하지 않습니다.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -288,7 +367,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "요일 정보가 올바르지 않습니다.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -301,19 +380,19 @@ export async function POST(request: Request) {
         ok: false,
         message: "이미 지난 날짜의 예약입니다.",
       },
-      { status: 403 },
+      { status: 403 }
     );
   }
 
   if (courtDate === today && slotEndTime <= currentTime) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "이미 종료된 시간은 예약할 수 없습니다.",
-      },
-      { status: 403 },
-    );
-  }
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "이미 종료된 시간은 예약할 수 없습니다.",
+    },
+    { status: 403 }
+  );
+}
 
   const { data: segment, error: segmentError } = await supabaseAdmin
     .from("court_segments")
@@ -327,7 +406,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "해당 시간 구간을 찾을 수 없습니다.",
       },
-      { status: 404 },
+      { status: 404 }
     );
   }
 
@@ -337,7 +416,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "코트 정보가 올바르지 않습니다.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -347,36 +426,49 @@ export async function POST(request: Request) {
         ok: false,
         message: "선택한 면 번호가 올바르지 않습니다.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
-  if (
-    !/^([01]\d|2[0-3]):00$/.test(slotStartTime) ||
-    !/^([01]\d|2[0-4]):00$/.test(slotEndTime) ||
-    Number(slotEndTime.slice(0, 2)) - Number(slotStartTime.slice(0, 2)) < 1 ||
-    Number(slotEndTime.slice(0, 2)) - Number(slotStartTime.slice(0, 2)) > 2
-  ) {
+  const isValidSlot = isValidSlotInSegment({
+    segmentStartTime: normalizeTime(segment.start_time),
+    segmentEndTime: normalizeTime(segment.end_time),
+    slotStartTime,
+    slotEndTime,
+  });
+
+  if (!isValidSlot) {
     return NextResponse.json(
-      { ok: false, message: "시간표에 없는 예약 시간입니다." },
-      { status: 400 },
+      {
+        ok: false,
+        message: "시간표에 없는 예약 시간입니다.",
+      },
+      { status: 400 }
     );
   }
+
   const passwordHash = hashPassword(password);
-  const { data, error } = await supabaseAdmin.rpc("kutc_create_booking", {
-    p_request: {
+  const extraReservationOpenAt = getExtraReservationOpenAt(courtDate);
+  const isExtraReservation = now >= extraReservationOpenAt;
+
+  const { data, error } = await supabaseAdmin
+    .from("reservations")
+    .insert({
       batch_id: batchId,
       group_id: groupId,
+      segment_id: segmentId,
       slot_start_time: slotStartTime,
       slot_end_time: slotEndTime,
       court_number: courtNumber,
       reserver_name: reserverName,
       student_id: studentId,
       password_hash: passwordHash,
+      is_extra_reservation: isExtraReservation,
       created_device_id: deviceId,
       created_user_agent: userAgent,
-    },
-  });
+    })
+    .select("id")
+    .single();
 
   if (error) {
     if (error.code === "23505") {
@@ -386,7 +478,7 @@ export async function POST(request: Request) {
             ok: false,
             message: "기존 예약 내역이 있습니다.",
           },
-          { status: 409 },
+          { status: 409 }
         );
       }
 
@@ -395,18 +487,17 @@ export async function POST(request: Request) {
           ok: false,
           message: "이미 예약된 시간입니다. 다른 시간을 선택해주세요.",
         },
-        { status: 409 },
+        { status: 409 }
       );
     }
 
     return NextResponse.json(
       {
         ok: false,
-        message:
-          error.code === "P0001" ? error.message : "예약 저장에 실패했습니다.",
+        message: "예약 저장에 실패했습니다.",
         error: error.message,
       },
-      { status: error.code === "P0001" ? 409 : 500 },
+      { status: 500 }
     );
   }
 
@@ -414,11 +505,8 @@ export async function POST(request: Request) {
     NextResponse.json({
       ok: true,
       message: "예약이 완료되었습니다.",
-      reservationId: data.reservationId,
-      partial: data.partial,
-      slotStartTime: data.slotStartTime,
-      slotEndTime: data.slotEndTime,
+      reservationId: data.id,
     }),
-    deviceId,
+    deviceId
   );
 }
