@@ -1,3 +1,4 @@
+import { isAdminPasswordValid, readJsonBody } from "@/lib/server-request";
 import { NextResponse } from "next/server";
 
 type AdminLoginRequest = {
@@ -5,15 +6,20 @@ type AdminLoginRequest = {
 };
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as AdminLoginRequest;
+  const body = await readJsonBody<AdminLoginRequest>(request);
+  if (!body)
+    return NextResponse.json(
+      { ok: false, message: "요청 정보가 올바르지 않습니다." },
+      { status: 400 },
+    );
 
-  if (body.adminPassword !== process.env.ADMIN_PASSWORD) {
+  if (!isAdminPasswordValid(body.adminPassword)) {
     return NextResponse.json(
       {
         ok: false,
         message: "관리자 비밀번호가 올바르지 않습니다.",
       },
-      { status: 401 }
+      { status: 401 },
     );
   }
 

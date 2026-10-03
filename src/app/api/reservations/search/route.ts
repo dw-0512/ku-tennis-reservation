@@ -1,198 +1,27 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/server";
-
-type SearchReservationRequest = {
-  reserverName: string;
-  studentId: string;
-};
-
-type RawReservation = {
-  id: string;
-  slot_start_time: string;
-  slot_end_time: string;
-  court_number: number;
-  reserver_name: string;
-  reservation_batches:
-    | {
-        title: string;
-        start_date: string;
-        end_date: string;
-      }
-    | {
-        title: string;
-        start_date: string;
-        end_date: string;
-      }[]
-    | null;
-  court_groups:
-    | {
-        day_name: string;
-        court_name: string;
-      }
-    | {
-        day_name: string;
-        court_name: string;
-      }[]
-    | null;
-};
-
-const dayOffsetMap: Record<string, number> = {
-  월요일: 0,
-  화요일: 1,
-  수요일: 2,
-  목요일: 3,
-  금요일: 4,
-  토요일: 5,
-  일요일: 6,
-};
-
-function cleanText(value: string) {
-  return value.trim();
-}
-
-function cleanStudentId(value: string) {
-  return value.trim().replace(/\s/g, "");
-}
-
-function normalizeTime(time: string) {
-  return time.slice(0, 5);
-}
-
-function getFirstItem<T>(value: T | T[] | null): T | null {
-  if (!value) {
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function addDaysToDateString(dateString: string, days: number) {
-  const [year, month, day] = dateString.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-
-  date.setUTCDate(date.getUTCDate() + days);
-
-  return date.toISOString().slice(0, 10);
-}
-
-function getCourtDate(batchStartDate: string, dayName: string) {
-  const offset = dayOffsetMap[dayName];
-
-  if (offset === undefined) {
-    return null;
-  }
-
-  return addDaysToDateString(batchStartDate, offset);
-}
-
-function getSlotEndTimeInKst(courtDate: string, slotEndTime: string) {
-  const normalizedEndTime = normalizeTime(slotEndTime);
-
-  return new Date(`${courtDate}T${normalizedEndTime}:00+09:00`).getTime();
-}
+import { getMemberSession } from "@/lib/member-session";
+import { getMemberReservations } from "@/lib/booking/my-reservations";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as SearchReservationRequest;
-
-  const reserverName = cleanText(body.reserverName ?? "");
-  const studentId = cleanStudentId(body.studentId ?? "");
-
-  if (!reserverName || !studentId) {
+  const member = await getMemberSession(
+    request.headers.get("x-kutc-member-session"),
+  );
+  if (!member)
     return NextResponse.json(
-      {
-        ok: false,
-        message: "이름과 학번을 모두 입력해주세요.",
-      },
-      { status: 400 }
+      { ok: false, message: "동아리원 확인이 필요합니다." },
+      { status: 401 },
     );
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from("reservations")
-    .select(
-      `
-      id,
-      slot_start_time,
-      slot_end_time,
-      court_number,
-      reserver_name,
-      reservation_batches (
-        title,
-        start_date,
-        end_date
-      ),
-      court_groups (
-        day_name,
-        court_name
-      )
-    `
-    )
-    .eq("reserver_name", reserverName)
-    .eq("student_id", studentId)
-    .is("cancelled_at", null)
-    .order("created_at", { ascending: false });
-
-  if (error) {
+  try {
+    const reservations = await getMemberReservations(member);
+    return NextResponse.json({ ok: true, reservations });
+  } catch (error) {
     return NextResponse.json(
       {
         ok: false,
         message: "예약 조회에 실패했습니다.",
-        error: error.message,
+        error: error instanceof Error ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
-
-  const now = Date.now();
-  const rows = (data ?? []) as RawReservation[];
-
-  const reservations = rows.flatMap((reservation) => {
-    const batch = getFirstItem(reservation.reservation_batches);
-    const courtGroup = getFirstItem(reservation.court_groups);
-
-    if (!batch || !courtGroup) {
-      return [];
-    }
-
-    const courtDate = getCourtDate(batch.start_date, courtGroup.day_name);
-
-    if (!courtDate) {
-      return [];
-    }
-
-    const slotEndTime = getSlotEndTimeInKst(
-      courtDate,
-      reservation.slot_end_time
-    );
-
-    if (slotEndTime <= now) {
-      return [];
-    }
-
-    return [
-      {
-        id: reservation.id,
-        title: batch.title ?? "코트예약",
-        date: courtGroup.day_name ?? "",
-        courtDate,
-        courtName: courtGroup.court_name ?? "",
-        time: `${normalizeTime(reservation.slot_start_time)} ~ ${normalizeTime(
-          reservation.slot_end_time
-        )}`,
-        slotEndTime: normalizeTime(reservation.slot_end_time),
-        courtNumber: reservation.court_number,
-        name: reservation.reserver_name,
-        canCancel: true,
-      },
-    ];
-  });
-
-  return NextResponse.json({
-    ok: true,
-    reservations,
-  });
 }

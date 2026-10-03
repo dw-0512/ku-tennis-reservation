@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { memberFetch } from "@/lib/member-client";
+
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type ReservationButtonProps = {
@@ -13,6 +15,9 @@ type ReservationButtonProps = {
   courtName: string;
   reservedBy?: string;
   isClosed?: boolean;
+  triggerLabel?: string;
+  onBooked?: () => void;
+  onDismiss?: () => void;
 };
 
 export default function ReservationButton({
@@ -25,58 +30,76 @@ export default function ReservationButton({
   courtName,
   reservedBy,
   isClosed,
+  triggerLabel,
+  onBooked,
+  onDismiss,
 }: ReservationButtonProps) {
   const router = useRouter();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [reserverName, setReserverName] = useState("");
-  const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const submitPending = useRef(false);
+
   async function handleSubmit() {
-    if (!reserverName.trim() || !studentId.trim() || !password.trim()) {
-      alert("이름, 학번, 예약 비밀번호를 모두 입력해주세요.");
+    if (submitPending.current) return;
+    if (!password.trim()) {
+      alert("예약 비밀번호를 입력해주세요.");
       return;
     }
 
+    submitPending.current = true;
     setIsSubmitting(true);
 
-    const response = await fetch("/api/reservations/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        batchId,
-        groupId,
-        segmentId,
-        slotStartTime,
-        slotEndTime,
-        courtNumber,
-        reserverName,
-        studentId,
-        password,
-      }),
-    });
+    try {
+      const response = await memberFetch("/api/reservations/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          batchId,
+          groupId,
+          segmentId,
+          slotStartTime,
+          slotEndTime,
+          courtNumber,
+          password,
+        }),
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    setIsSubmitting(false);
+      setIsSubmitting(false);
 
-    if (!response.ok) {
-      alert(result.message ?? "예약에 실패했습니다.");
-      return;
+      if (!response.ok) {
+        setIsOpen(false);
+        onDismiss?.();
+        alert(result.message ?? "예약에 실패했습니다.");
+        router.refresh();
+        return;
+      }
+
+      alert(
+        result.partial
+          ? "선택한 시간 중 일부가 먼저 예약되어 남은 시간만 예약되었습니다."
+          : "예약이 완료되었습니다.",
+      );
+
+      setIsOpen(false);
+      setPassword("");
+
+      onBooked?.();
+      router.refresh();
+    } catch {
+      setIsOpen(false);
+      onDismiss?.();
+      alert("연결이 끊겼습니다. 예약 확인에서 처리 결과를 확인해주세요.");
+    } finally {
+      submitPending.current = false;
+      setIsSubmitting(false);
     }
-
-    alert("예약이 완료되었습니다.");
-
-    setIsOpen(false);
-    setReserverName("");
-    setStudentId("");
-    setPassword("");
-
-    router.refresh();
   }
 
   if (reservedBy) {
@@ -91,23 +114,27 @@ export default function ReservationButton({
   }
 
   if (isClosed) {
-  return (
-    <button
-      disabled
-      className="rounded-xl bg-gray-200 px-3 py-3 text-sm font-bold text-gray-500"
-    >
-      {courtNumber}면 예약 마감
-    </button>
-  );
-}
+    return (
+      <button
+        disabled
+        className="rounded-xl bg-gray-200 px-3 py-3 text-sm font-bold text-gray-500"
+      >
+        {courtNumber}면 예약 마감
+      </button>
+    );
+  }
 
   return (
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="rounded-xl bg-white px-3 py-3 text-sm font-bold text-gray-900 ring-1 ring-gray-300 transition hover:border-[#8B0029] hover:text-[#8B0029] hover:ring-[#8B0029]"
+        className={
+          triggerLabel
+            ? "shrink-0 rounded-xl bg-[#8B0029] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#6F0021]"
+            : "rounded-xl bg-white px-3 py-3 text-sm font-bold text-gray-900 ring-1 ring-gray-300 transition hover:border-[#8B0029] hover:text-[#8B0029] hover:ring-[#8B0029]"
+        }
       >
-        {courtNumber}면 예약 가능
+        {triggerLabel ?? `${courtNumber}면 예약 가능`}
       </button>
 
       {isOpen && (
@@ -122,29 +149,11 @@ export default function ReservationButton({
               </span>
             </p>
 
+            <p className="mt-3 text-sm text-gray-600">
+              선택한 시간 중 일부가 먼저 예약되면 남은 시간만 예약됩니다.
+            </p>
+
             <div className="mt-5 space-y-4">
-              <div>
-                <label className="text-sm font-bold text-gray-700">이름</label>
-                <input
-                  type="text"
-                  value={reserverName}
-                  onChange={(event) => setReserverName(event.target.value)}
-                  placeholder="예: 이동우"
-                  className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#8B0029] focus:ring-2 focus:ring-[#8B0029]/20"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-gray-700">학번</label>
-                <input
-                  type="text"
-                  value={studentId}
-                  onChange={(event) => setStudentId(event.target.value)}
-                  placeholder="예: 2025123456"
-                  className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#8B0029] focus:ring-2 focus:ring-[#8B0029]/20"
-                />
-              </div>
-
               <div>
                 <label className="text-sm font-bold text-gray-700">
                   예약 비밀번호
@@ -169,7 +178,10 @@ export default function ReservationButton({
               </button>
 
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false);
+                  onDismiss?.();
+                }}
                 disabled={isSubmitting}
                 className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-gray-700 ring-1 ring-gray-300 transition hover:bg-gray-100 disabled:opacity-50"
               >

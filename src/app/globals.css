@@ -38,3 +38,8 @@ textarea::placeholder {
   color: #9ca3af;
   opacity: 1;
 }
+
+html,
+body {
+  touch-action: pan-y;
+}

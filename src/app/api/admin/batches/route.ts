@@ -1,3 +1,4 @@
+import { isAdminPasswordValid, readJsonBody } from "@/lib/server-request";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -6,21 +7,28 @@ type AdminBatchesRequest = {
 };
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as AdminBatchesRequest;
+  const body = await readJsonBody<AdminBatchesRequest>(request);
+  if (!body)
+    return NextResponse.json(
+      { ok: false, message: "요청 정보가 올바르지 않습니다." },
+      { status: 400 },
+    );
 
-  if (body.adminPassword !== process.env.ADMIN_PASSWORD) {
+  if (!isAdminPasswordValid(body.adminPassword)) {
     return NextResponse.json(
       {
         ok: false,
         message: "관리자 비밀번호가 올바르지 않습니다.",
       },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
   const { data: batches, error: batchesError } = await supabaseAdmin
     .from("reservation_batches")
-    .select("id, title, start_date, end_date, open_at, display_until, created_at")
+    .select(
+      "id, title, start_date, end_date, open_at, display_until, created_at",
+    )
     .order("start_date", { ascending: false });
 
   if (batchesError) {
@@ -30,7 +38,7 @@ export async function POST(request: Request) {
         message: "예약 주차 목록을 불러오지 못했습니다.",
         error: batchesError.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -56,7 +64,7 @@ export async function POST(request: Request) {
         message: "예약자 수를 확인하지 못했습니다.",
         error: reservationsError.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 

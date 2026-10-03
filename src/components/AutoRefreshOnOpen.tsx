@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useServerClock } from "@/lib/use-server-clock";
+import { formatRemainingTime, PREVIEW_LEAD_TIME } from "@/lib/booking/time";
 import { useRouter } from "next/navigation";
 
 type AutoRefreshOnOpenProps = {
@@ -8,88 +10,45 @@ type AutoRefreshOnOpenProps = {
   serverNow: string;
 };
 
-function formatRemainingTime(milliseconds: number) {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
-
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return `${days}일 ${String(hours).padStart(2, "0")}:${String(
-    minutes
-  ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
 export default function AutoRefreshOnOpen({
   nextOpenAt,
   serverNow,
 }: AutoRefreshOnOpenProps) {
   const router = useRouter();
-  const [remainingText, setRemainingText] = useState("");
-
+  const refreshed = useRef({ nextOpenAt, preview: false, open: false });
+  const serverTime = Date.parse(serverNow);
+  const now = useServerClock(serverNow);
   useEffect(() => {
-    if (!nextOpenAt) {
-      setRemainingText("");
-      return;
+    if (!nextOpenAt) return;
+    const openTime = Date.parse(nextOpenAt);
+    const previewTime = openTime - PREVIEW_LEAD_TIME;
+    if (refreshed.current.nextOpenAt !== nextOpenAt) {
+      refreshed.current = { nextOpenAt, preview: false, open: false };
     }
-
-    const openTime = new Date(nextOpenAt).getTime();
-    const serverNowTime = new Date(serverNow).getTime();
-    const clientNowTime = Date.now();
-    const serverTimeOffset = serverNowTime - clientNowTime;
-
-    function getCorrectedNow() {
-      return Date.now() + serverTimeOffset;
+    if (serverTime >= previewTime) refreshed.current.preview = true;
+    let shouldRefresh = false;
+    if (!refreshed.current.preview && now >= previewTime) {
+      refreshed.current.preview = true;
+      shouldRefresh = true;
     }
-
-    function updateCountdown() {
-      const remainingMs = openTime - getCorrectedNow();
-
-      if (remainingMs <= 0) {
-        setRemainingText("곧 열립니다");
-        return;
-      }
-
-      setRemainingText(formatRemainingTime(remainingMs));
+    if (!refreshed.current.open && now >= openTime) {
+      refreshed.current.open = true;
+      shouldRefresh = true;
     }
+    if (shouldRefresh) router.refresh();
+  }, [nextOpenAt, serverTime, now, router]);
 
-    updateCountdown();
+  if (!nextOpenAt) return null;
 
-    const interval = window.setInterval(updateCountdown, 1000);
-    const delay = openTime - getCorrectedNow();
-
-    const timers =
-      delay > 0
-        ? [
-            window.setTimeout(() => {
-              router.refresh();
-            }, delay),
-            window.setTimeout(() => {
-              router.refresh();
-            }, delay + 2000),
-          ]
-        : [
-            window.setTimeout(() => {
-              router.refresh();
-            }, 500),
-          ];
-
-    return () => {
-      window.clearInterval(interval);
-      timers.forEach((timer) => window.clearTimeout(timer));
-    };
-  }, [nextOpenAt, serverNow, router]);
-
-  if (!nextOpenAt || !remainingText) {
-    return null;
-  }
+  const remaining = new Date(nextOpenAt).getTime() - now;
 
   return (
     <section className="mx-auto max-w-6xl px-5 pb-6">
       <div className="rounded-2xl bg-white px-5 py-4 text-sm font-bold text-gray-900 shadow-sm ring-1 ring-gray-200">
         다음 예약 오픈까지 남은 시간:{" "}
-        <span className="text-[#8B0029]">{remainingText}</span>
+        <span className="text-[#8B0029]">
+          {remaining > 0 ? formatRemainingTime(remaining) : "곧 열립니다"}
+        </span>
       </div>
     </section>
   );

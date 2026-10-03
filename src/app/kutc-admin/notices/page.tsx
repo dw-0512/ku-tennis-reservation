@@ -1,8 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { requestAdmin } from "@/lib/admin-client";
+
+import { formatKoreanDateTime } from "@/lib/notices/display";
+
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import NoticePinExpiry from "@/components/NoticePinExpiry";
+import {
+  NoticePrefix,
+  joinNoticeTitle,
+  splitNoticeTitle,
+  nextPinExpiry,
+} from "@/lib/notices/title";
 
 type Notice = {
   id: string;
@@ -10,23 +21,10 @@ type Notice = {
   content: string;
   is_published: boolean;
   is_pinned: boolean;
+  pinned_until: string | null;
   created_at: string;
   updated_at: string;
 };
-
-function formatKoreanDateTime(dateString: string) {
-  const formatter = new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-
-  return formatter.format(new Date(dateString));
-}
 
 export default function AdminNoticesPage() {
   const router = useRouter();
@@ -36,6 +34,11 @@ export default function AdminNoticesPage() {
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
+  const [prefix, setPrefix] = useState<NoticePrefix>("");
+  const [pinMode, setPinMode] = useState("permanent");
+  const [pinnedUntil, setPinnedUntil] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isPublished, setIsPublished] = useState(true);
@@ -45,33 +48,22 @@ export default function AdminNoticesPage() {
 
   async function requestNotices(
     actionBody: Record<string, unknown>,
-    passwordOverride?: string
+    passwordOverride?: string,
   ) {
     const passwordToUse = passwordOverride ?? adminPassword;
 
-    const response = await fetch("/api/admin/notices", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        adminPassword: passwordToUse,
-        ...actionBody,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.ok) {
-      throw new Error(result.error ?? result.message ?? "요청에 실패했습니다.");
-    }
-
-    return result;
+    return requestAdmin("/api/admin/notices", passwordToUse, actionBody);
   }
 
-  async function loadNotices(passwordOverride?: string) {
+  const loadRequest = useRef(0);
+
+  async function loadNotices(
+    passwordOverride?: string,
+    requestedPage = page,
+  ): Promise<boolean> {
     const passwordToUse = passwordOverride ?? adminPassword;
 
+    const requestId = ++loadRequest.current;
     setIsLoading(true);
     setMessage("");
 
@@ -79,30 +71,42 @@ export default function AdminNoticesPage() {
       const result = await requestNotices(
         {
           action: "list",
+          page: requestedPage,
         },
-        passwordToUse
+        passwordToUse,
       );
 
+      if (requestId !== loadRequest.current) return false;
       setAdminPassword(passwordToUse);
       window.sessionStorage.setItem("kutcAdminPassword", passwordToUse);
 
+      if (requestedPage > result.totalPages) {
+        return await loadNotices(passwordToUse, result.totalPages);
+      }
       setNotices(result.notices ?? []);
+      setPage(requestedPage);
+      setTotalPages(result.totalPages);
       setIsLoggedIn(true);
 
       return true;
     } catch (error) {
+      if (requestId !== loadRequest.current) return false;
       setMessage(
         error instanceof Error
           ? error.message
-          : "공지사항 목록을 불러오지 못했습니다."
+          : "공지사항 목록을 불러오지 못했습니다.",
       );
       setIsLoggedIn(false);
 
       return false;
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequest.current) setIsLoading(false);
     }
   }
+
+  const restoreSession = useEffectEvent((savedPassword: string) =>
+    loadNotices(savedPassword, 1),
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -115,7 +119,7 @@ export default function AdminNoticesPage() {
         return;
       }
 
-      const ok = await loadNotices(savedPassword);
+      const ok = await restoreSession(savedPassword);
 
       if (!isMounted) {
         return;
@@ -138,6 +142,14 @@ export default function AdminNoticesPage() {
   }, [router]);
 
   async function handleSubmit() {
+    if (!title.trim() || !content.trim()) {
+      setMessage("제목과 내용을 입력해주세요.");
+      return;
+    }
+    if (isPinned && pinMode === "until" && !pinnedUntil) {
+      setMessage("고정 종료 날짜를 입력해주세요.");
+      return;
+    }
     setIsLoading(true);
     setMessage("");
 
@@ -145,13 +157,17 @@ export default function AdminNoticesPage() {
       await requestNotices({
         action: editingNoticeId ? "update" : "create",
         noticeId: editingNoticeId,
-        title,
+        title: joinNoticeTitle(prefix, title),
         content,
         isPublished,
         isPinned,
+        pinnedUntil: isPinned && pinMode === "until" ? pinnedUntil : null,
       });
 
       setTitle("");
+      setPrefix("");
+      setPinMode("permanent");
+      setPinnedUntil("");
       setContent("");
       setIsPublished(true);
       setIsPinned(false);
@@ -159,7 +175,7 @@ export default function AdminNoticesPage() {
       setMessage(
         editingNoticeId
           ? "공지사항이 수정되었습니다."
-          : "공지사항이 저장되었습니다."
+          : "공지사항이 저장되었습니다.",
       );
 
       await loadNotices();
@@ -167,7 +183,7 @@ export default function AdminNoticesPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "공지사항 저장에 실패했습니다."
+          : "공지사항 저장에 실패했습니다.",
       );
     } finally {
       setIsLoading(false);
@@ -196,7 +212,7 @@ export default function AdminNoticesPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "공지사항 삭제에 실패했습니다."
+          : "공지사항 삭제에 실패했습니다.",
       );
     } finally {
       setIsLoading(false);
@@ -205,7 +221,11 @@ export default function AdminNoticesPage() {
 
   function startEdit(notice: Notice) {
     setEditingNoticeId(notice.id);
-    setTitle(notice.title);
+    const parts = splitNoticeTitle(notice.title);
+    setTitle(parts.title);
+    setPrefix(parts.prefix);
+    setPinMode(notice.pinned_until ? "until" : "permanent");
+    setPinnedUntil(notice.pinned_until ?? "");
     setContent(notice.content);
     setIsPublished(notice.is_published);
     setIsPinned(notice.is_pinned);
@@ -216,6 +236,9 @@ export default function AdminNoticesPage() {
   function cancelEdit() {
     setEditingNoticeId(null);
     setTitle("");
+    setPrefix("");
+    setPinMode("permanent");
+    setPinnedUntil("");
     setContent("");
     setIsPublished(true);
     setIsPinned(false);
@@ -263,29 +286,43 @@ export default function AdminNoticesPage() {
       <section className="mx-auto max-w-5xl space-y-6 px-5 py-6">
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <h2 className="text-2xl font-bold text-gray-900">
-    {editingNoticeId ? "공지사항 수정" : "새 공지사항 작성"}
-  </h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {editingNoticeId ? "공지사항 수정" : "새 공지사항 작성"}
+            </h2>
 
-  {editingNoticeId ? (
-    <button
-      type="button"
-      onClick={cancelEdit}
-      className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-800 ring-1 ring-gray-200 transition hover:bg-gray-200"
-    >
-      새 공지 작성
-    </button>
-  ) : null}
-</div>
+            {editingNoticeId ? (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-800 ring-1 ring-gray-200 transition hover:bg-gray-200"
+              >
+                새 공지 작성
+              </button>
+            ) : null}
+          </div>
 
           <div className="mt-4 space-y-3">
-            <input
-              type="text"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="제목"
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#8B0029] focus:ring-2 focus:ring-[#8B0029]/20"
-            />
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <select
+                value={prefix}
+                onChange={(event) =>
+                  setPrefix(event.target.value as NoticePrefix)
+                }
+                aria-label="제목 말머리"
+                className="rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#8B0029]"
+              >
+                <option value="">없음</option>
+                <option value="예약 안내">예약 안내</option>
+                <option value="이용 안내">이용 안내</option>
+              </select>
+              <input
+                type="text"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="제목"
+                className="min-w-0 flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#8B0029] focus:ring-2 focus:ring-[#8B0029]/20"
+              />
+            </div>
 
             <textarea
               value={content}
@@ -315,6 +352,28 @@ export default function AdminNoticesPage() {
                 />
                 상단 고정 공지
               </label>
+              {isPinned && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    value={pinMode}
+                    onChange={(event) => setPinMode(event.target.value)}
+                    aria-label="고정 기간"
+                    className="rounded-xl border border-gray-300 px-4 py-2 text-sm outline-none focus:border-[#8B0029]"
+                  >
+                    <option value="permanent">영구 고정</option>
+                    <option value="until">종료 날짜 지정</option>
+                  </select>
+                  {pinMode === "until" && (
+                    <input
+                      type="date"
+                      value={pinnedUntil}
+                      onChange={(event) => setPinnedUntil(event.target.value)}
+                      aria-label="고정 종료 날짜"
+                      className="rounded-xl border border-gray-300 px-4 py-2 text-sm outline-none focus:border-[#8B0029]"
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -326,7 +385,6 @@ export default function AdminNoticesPage() {
               >
                 {editingNoticeId ? "수정하기" : "등록하기"}
               </button>
-
             </div>
 
             {message ? (
@@ -337,18 +395,28 @@ export default function AdminNoticesPage() {
 
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">
-              공지사항 목록
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900">공지사항 목록</h2>
 
-            <button
-              type="button"
-              onClick={() => loadNotices()}
-              disabled={isLoading}
-              className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-800 ring-1 ring-gray-200 transition hover:bg-gray-200 disabled:opacity-50"
-            >
-              새로고침
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => loadNotices(undefined, page - 1)}
+                disabled={isLoading || page === 1}
+                aria-label="이전 페이지"
+                className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-800 ring-1 ring-gray-200 transition hover:bg-gray-200 disabled:opacity-50"
+              >
+                &lt;
+              </button>
+              <button
+                type="button"
+                onClick={() => loadNotices(undefined, page + 1)}
+                disabled={isLoading || page >= totalPages}
+                aria-label="다음 페이지"
+                className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-800 ring-1 ring-gray-200 transition hover:bg-gray-200 disabled:opacity-50"
+              >
+                &gt;
+              </button>
+            </div>
           </div>
 
           {notices.length === 0 ? (
@@ -419,6 +487,12 @@ export default function AdminNoticesPage() {
           )}
         </div>
       </section>
+      <NoticePinExpiry
+        expiresAt={nextPinExpiry(notices)}
+        onExpire={() => {
+          void loadNotices();
+        }}
+      />
     </main>
   );
 }

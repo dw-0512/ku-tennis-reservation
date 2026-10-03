@@ -1,3 +1,5 @@
+import { normalizeTime } from "@/lib/booking/time";
+import { isAdminPasswordValid, readJsonBody } from "@/lib/server-request";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -6,20 +8,21 @@ type AdminBatchReservationsRequest = {
   batchId: string;
 };
 
-function normalizeTime(time: string) {
-  return time.slice(0, 5);
-}
-
 export async function POST(request: Request) {
-  const body = (await request.json()) as AdminBatchReservationsRequest;
+  const body = await readJsonBody<AdminBatchReservationsRequest>(request);
+  if (!body)
+    return NextResponse.json(
+      { ok: false, message: "요청 정보가 올바르지 않습니다." },
+      { status: 400 },
+    );
 
-  if (body.adminPassword !== process.env.ADMIN_PASSWORD) {
+  if (!isAdminPasswordValid(body.adminPassword)) {
     return NextResponse.json(
       {
         ok: false,
         message: "관리자 비밀번호가 올바르지 않습니다.",
       },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -29,7 +32,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "예약 주차 정보가 없습니다.",
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
         day_name,
         court_name
       )
-    `
+    `,
     )
     .eq("batch_id", body.batchId)
     .is("cancelled_at", null)
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
         message: "예약자 목록을 불러오지 못했습니다.",
         error: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -77,7 +80,7 @@ export async function POST(request: Request) {
       day: courtGroup?.day_name ?? "",
       courtName: courtGroup?.court_name ?? "",
       time: `${normalizeTime(reservation.slot_start_time)} ~ ${normalizeTime(
-        reservation.slot_end_time
+        reservation.slot_end_time,
       )}`,
       courtNumber: reservation.court_number,
       createdAt: reservation.created_at,

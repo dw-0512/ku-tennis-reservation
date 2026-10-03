@@ -14,7 +14,7 @@ export async function GET() {
         message: "Supabase 연결 실패",
         error: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { requestAdmin } from "@/lib/admin-client";
+
+import { Fragment, useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -38,33 +40,19 @@ export default function AdminMembersPage() {
 
   async function requestMembers(
     actionBody: Record<string, unknown>,
-    passwordOverride?: string
+    passwordOverride?: string,
   ) {
     const passwordToUse = passwordOverride ?? adminPassword;
 
-    const response = await fetch("/api/admin/members", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        adminPassword: passwordToUse,
-        ...actionBody,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.ok) {
-      throw new Error(result.error ?? result.message ?? "요청에 실패했습니다.");
-    }
-
-    return result;
+    return requestAdmin("/api/admin/members", passwordToUse, actionBody);
   }
+
+  const loadRequest = useRef(0);
 
   async function loadMembers(passwordOverride?: string) {
     const passwordToUse = passwordOverride ?? adminPassword;
 
+    const requestId = ++loadRequest.current;
     setIsLoading(true);
     setMessage("");
 
@@ -73,9 +61,10 @@ export default function AdminMembersPage() {
         {
           action: "list",
         },
-        passwordToUse
+        passwordToUse,
       );
 
+      if (requestId !== loadRequest.current) return false;
       setAdminPassword(passwordToUse);
       window.sessionStorage.setItem("kutcAdminPassword", passwordToUse);
 
@@ -84,18 +73,23 @@ export default function AdminMembersPage() {
 
       return true;
     } catch (error) {
+      if (requestId !== loadRequest.current) return false;
       setMessage(
         error instanceof Error
           ? error.message
-          : "동아리원 명단을 불러오지 못했습니다."
+          : "동아리원 명단을 불러오지 못했습니다.",
       );
       setIsLoggedIn(false);
 
       return false;
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequest.current) setIsLoading(false);
     }
   }
+
+  const restoreSession = useEffectEvent((savedPassword: string) =>
+    loadMembers(savedPassword),
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -108,7 +102,7 @@ export default function AdminMembersPage() {
         return;
       }
 
-      const ok = await loadMembers(savedPassword);
+      const ok = await restoreSession(savedPassword);
 
       if (!isMounted) {
         return;
@@ -151,7 +145,7 @@ export default function AdminMembersPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "동아리원 추가에 실패했습니다."
+          : "동아리원 추가에 실패했습니다.",
       );
     } finally {
       setIsLoading(false);
@@ -204,7 +198,7 @@ export default function AdminMembersPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "동아리원 수정에 실패했습니다."
+          : "동아리원 수정에 실패했습니다.",
       );
     } finally {
       setIsLoading(false);
@@ -213,7 +207,7 @@ export default function AdminMembersPage() {
 
   async function handleDeleteMember(member: Member) {
     const confirmed = window.confirm(
-      `${member.name} (${member.student_id}) 동아리원을 삭제할까요?\n\n삭제하면 명단에서 완전히 사라집니다.`
+      `${member.name} (${member.student_id}) 동아리원을 삭제할까요?\n\n삭제하면 명단에서 완전히 사라집니다.`,
     );
 
     if (!confirmed) {
@@ -235,7 +229,7 @@ export default function AdminMembersPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "동아리원 삭제에 실패했습니다."
+          : "동아리원 삭제에 실패했습니다.",
       );
     } finally {
       setIsLoading(false);
@@ -243,55 +237,55 @@ export default function AdminMembersPage() {
   }
 
   function getAdmissionYearLabel(studentId: string) {
-  const cleanedStudentId = studentId.trim();
+    const cleanedStudentId = studentId.trim();
 
-  if (/^20\d{2}/.test(cleanedStudentId)) {
-    return `${cleanedStudentId.slice(2, 4)}학번`;
+    if (/^20\d{2}/.test(cleanedStudentId)) {
+      return `${cleanedStudentId.slice(2, 4)}학번`;
+    }
+
+    if (/^\d{2}/.test(cleanedStudentId)) {
+      return `${cleanedStudentId.slice(0, 2)}학번`;
+    }
+
+    return "기타";
   }
 
-  if (/^\d{2}/.test(cleanedStudentId)) {
-    return `${cleanedStudentId.slice(0, 2)}학번`;
+  function getAdmissionYearSortValue(label: string) {
+    const match = label.match(/^(\d{2})학번$/);
+
+    if (!match) {
+      return -1;
+    }
+
+    return Number(match[1]);
   }
 
-  return "기타";
-}
+  function groupMembersByAdmissionYear(sectionMembers: Member[]) {
+    const groupMap = new Map<string, Member[]>();
 
-function getAdmissionYearSortValue(label: string) {
-  const match = label.match(/^(\d{2})학번$/);
+    sectionMembers.forEach((member) => {
+      const label = getAdmissionYearLabel(member.student_id);
+      const membersInGroup = groupMap.get(label) ?? [];
 
-  if (!match) {
-    return -1;
-  }
-
-  return Number(match[1]);
-}
-
-function groupMembersByAdmissionYear(sectionMembers: Member[]) {
-  const groupMap = new Map<string, Member[]>();
-
-  sectionMembers.forEach((member) => {
-    const label = getAdmissionYearLabel(member.student_id);
-    const membersInGroup = groupMap.get(label) ?? [];
-
-    membersInGroup.push(member);
-    groupMap.set(label, membersInGroup);
-  });
-
-  return Array.from(groupMap.entries())
-    .map(([label, members]) => ({
-      label,
-      members: [...members].sort((a, b) =>
-        a.name.localeCompare(b.name, "ko-KR")
-      ),
-    }))
-    .sort((a, b) => {
-      const aYear = getAdmissionYearSortValue(a.label);
-      const bYear = getAdmissionYearSortValue(b.label);
-
-      return bYear - aYear;
+      membersInGroup.push(member);
+      groupMap.set(label, membersInGroup);
     });
-}
-  
+
+    return Array.from(groupMap.entries())
+      .map(([label, members]) => ({
+        label,
+        members: [...members].sort((a, b) =>
+          a.name.localeCompare(b.name, "ko-KR"),
+        ),
+      }))
+      .sort((a, b) => {
+        const aYear = getAdmissionYearSortValue(a.label);
+        const bYear = getAdmissionYearSortValue(b.label);
+
+        return bYear - aYear;
+      });
+  }
+
   function renderMemberRow(member: Member) {
     const isEditing = editingMemberId === member.id;
     const statusIsActive = isEditing ? editIsActive : member.is_active;
@@ -390,52 +384,52 @@ function groupMembersByAdmissionYear(sectionMembers: Member[]) {
   }
 
   function renderMemberSection(title: string, sectionMembers: Member[]) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+    return (
+      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
 
-        <p className="text-sm font-bold text-[#8B0029]">
-          총 {sectionMembers.length}명
-        </p>
-      </div>
-
-      {sectionMembers.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-600">해당 인원이 없습니다.</p>
-      ) : (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-y border-gray-200 bg-gray-50 text-xs font-bold text-gray-500">
-                <th className="px-3 py-3">이름</th>
-                <th className="px-3 py-3">학번</th>
-                <th className="px-3 py-3">상태</th>
-                <th className="px-3 py-3">관리</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {groupMembersByAdmissionYear(sectionMembers).map((group) => (
-                <Fragment key={group.label}>
-                  <tr className="border-t border-gray-200 bg-gray-50">
-                    <td
-                      colSpan={4}
-                      className="px-3 py-2 text-xs font-bold text-gray-600"
-                    >
-                      {group.label}
-                    </td>
-                  </tr>
-
-                  {group.members.map((member) => renderMemberRow(member))}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+          <p className="text-sm font-bold text-[#8B0029]">
+            총 {sectionMembers.length}명
+          </p>
         </div>
-      )}
-    </div>
-  );
-}
+
+        {sectionMembers.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-600">해당 인원이 없습니다.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-y border-gray-200 bg-gray-50 text-xs font-bold text-gray-500">
+                  <th className="px-3 py-3">이름</th>
+                  <th className="px-3 py-3">학번</th>
+                  <th className="px-3 py-3">상태</th>
+                  <th className="px-3 py-3">관리</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {groupMembersByAdmissionYear(sectionMembers).map((group) => (
+                  <Fragment key={group.label}>
+                    <tr className="border-t border-gray-200 bg-gray-50">
+                      <td
+                        colSpan={4}
+                        className="px-3 py-2 text-xs font-bold text-gray-600"
+                      >
+                        {group.label}
+                      </td>
+                    </tr>
+
+                    {group.members.map((member) => renderMemberRow(member))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (isCheckingAdmin || !isLoggedIn) {
     return null;
@@ -477,9 +471,7 @@ function groupMembersByAdmissionYear(sectionMembers: Member[]) {
 
       <section className="mx-auto max-w-5xl space-y-6 px-5 py-6">
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
-          <h2 className="text-2xl font-bold text-gray-900">
-            새 동아리원 추가
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">새 동아리원 추가</h2>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
             <input
