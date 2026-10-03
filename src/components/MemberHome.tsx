@@ -164,9 +164,9 @@ export default function MemberHome({ data }: { data: HomeData }) {
             </div>
           )}
         </section>
+        <AutoRefreshOnOpen nextOpenAt={nextOpenAt} serverNow={serverNow} />
       </HomeCourtLayout>
       <NoticePinExpiry expiresAt={nextPinExpiry(noticePreviews)} />
-      <AutoRefreshOnOpen nextOpenAt={nextOpenAt} serverNow={serverNow} />
     </main>
   );
 }

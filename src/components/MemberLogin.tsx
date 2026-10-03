@@ -2,8 +2,10 @@
 
 import { saveMemberToken } from "@/lib/member-client";
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function MemberLogin() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
   const [isChecking, setIsChecking] = useState(false);
@@ -30,6 +32,7 @@ export default function MemberLogin() {
         return;
       }
       saveMemberToken(result.token);
+      router.replace("/");
     } catch {
       alert("동아리원 확인에 실패했습니다. 다시 시도해주세요.");
     } finally {

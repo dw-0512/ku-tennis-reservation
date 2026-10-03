@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useServerClock } from "@/lib/use-server-clock";
 import { formatRemainingTime, PREVIEW_LEAD_TIME } from "@/lib/booking/time";
 import { useRouter } from "next/navigation";
+import { useCourtView } from "./HomeCourtLayout";
 
 type AutoRefreshOnOpenProps = {
   nextOpenAt: string | null;
@@ -15,6 +16,7 @@ export default function AutoRefreshOnOpen({
   serverNow,
 }: AutoRefreshOnOpenProps) {
   const router = useRouter();
+  const { activeId } = useCourtView();
   const refreshed = useRef({ nextOpenAt, preview: false, open: false });
   const serverTime = Date.parse(serverNow);
   const now = useServerClock(serverNow);
@@ -38,7 +40,7 @@ export default function AutoRefreshOnOpen({
     if (shouldRefresh) router.refresh();
   }, [nextOpenAt, serverTime, now, router]);
 
-  if (!nextOpenAt) return null;
+  if (!nextOpenAt || activeId) return null;
 
   const remaining = new Date(nextOpenAt).getTime() - now;
 
