@@ -1,1 +1,0 @@
-export const PUBLIC_GUIDE_NOTICE_ID = "cb33ec75-d023-416a-9f29-636b55a0bf3a";

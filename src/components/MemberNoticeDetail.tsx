@@ -27,12 +27,8 @@ function renderBoldText(text: string) {
 
 export default function MemberNoticeDetail({
   notice,
-  backHref = "/notice",
-  backLabel = "공지사항 목록으로",
 }: {
   notice: NoticeDetail | null;
-  backHref?: string;
-  backLabel?: string;
 }) {
   if (!notice) notFound();
   return (
@@ -41,10 +37,10 @@ export default function MemberNoticeDetail({
 
       <section className="mx-auto max-w-6xl px-5 py-6">
         <Link
-          href={backHref}
+          href="/notice"
           className="inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50"
         >
-          {backLabel}
+          공지사항 목록으로
         </Link>
 
         <article className="mt-5 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
