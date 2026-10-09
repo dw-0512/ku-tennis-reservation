@@ -1,4 +1,4 @@
-export const PREVIEW_LEAD_TIME = 172800000;
+export const PREVIEW_LEAD_TIME = 86400000;
 
 export const dayOffsetMap: Record<string, number> = {
   월요일: 0,
