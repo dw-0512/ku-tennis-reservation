@@ -19,6 +19,7 @@ import {
   clearMemberToken,
 } from "@/lib/member-client";
 import MemberWelcome from "./MemberWelcome";
+import type { NoticePreview } from "@/lib/notices/previews";
 import MemberHome from "./MemberHome";
 import MemberNotices from "./MemberNotices";
 import MemberNoticeDetail from "./MemberNoticeDetail";
@@ -33,10 +34,12 @@ export default function MemberTabGate({
   path,
   page = "",
   revision,
+  noticePreviews,
 }: {
   path: string;
   page?: string;
   revision: string;
+  noticePreviews: NoticePreview[];
 }) {
   const token = useSyncExternalStore(
     subscribe,
@@ -79,7 +82,7 @@ export default function MemberTabGate({
       clearTimeout(prefetchTimer);
     };
   }, [token, path, page, key, revision]);
-  if (!token) return <MemberWelcome />;
+  if (!token) return <MemberWelcome noticePreviews={noticePreviews} />;
   if (failedKey === key)
     return (
       <main className="min-h-screen bg-[#F8F8F8] px-5 py-6 text-sm text-gray-600">

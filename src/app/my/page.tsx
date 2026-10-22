@@ -1,4 +1,4 @@
-import MemberTabGate from "@/components/MemberTabGate";
+import MemberTabGate from "@/components/ServerMemberTabGate";
 
 export const dynamic = "force-dynamic";
 

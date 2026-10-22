@@ -1,4 +1,6 @@
-import MemberTabGate from "@/components/MemberTabGate";
+import { notFound } from "next/navigation";
+import MemberNoticeDetail from "@/components/MemberNoticeDetail";
+import getNoticeDetail from "@/lib/member-pages/notice-detail";
 
 export const dynamic = "force-dynamic";
 
@@ -7,11 +9,9 @@ export default async function NoticePage({
 }: {
   params: Promise<{ noticeId: string }>;
 }) {
-  const { noticeId } = await params;
-  return (
-    <MemberTabGate
-      path={`/notice/${noticeId}`}
-      revision={new Date().toISOString()}
-    />
-  );
+  const notice = await getNoticeDetail({ params });
+
+  if (!notice) notFound();
+
+  return <MemberNoticeDetail notice={notice} />;
 }

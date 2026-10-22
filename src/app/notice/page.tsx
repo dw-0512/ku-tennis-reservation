@@ -1,4 +1,5 @@
-import MemberTabGate from "@/components/MemberTabGate";
+import MemberNotices from "@/components/MemberNotices";
+import getNoticesData from "@/lib/member-pages/notices";
 
 export const dynamic = "force-dynamic";
 
@@ -7,12 +8,7 @@ export default async function NoticePage({
 }: {
   searchParams?: Promise<{ page?: string }>;
 }) {
-  const query = searchParams ? await searchParams : {};
-  return (
-    <MemberTabGate
-      path="/notice"
-      page={query.page ?? ""}
-      revision={new Date().toISOString()}
-    />
-  );
+  const data = await getNoticesData({ searchParams });
+
+  return <MemberNotices data={data} />;
 }

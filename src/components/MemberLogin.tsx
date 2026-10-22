@@ -42,7 +42,7 @@ export default function MemberLogin() {
   }
 
   return (
-    <section className="mx-auto max-w-5xl px-5 py-6">
+    <section className="mx-auto max-w-6xl px-5 py-6">
       <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E5E5]">
         <h2 className="text-2xl font-bold text-gray-900">동아리원 정보 입력</h2>
 
