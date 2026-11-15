@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useLiveBookings } from "@/lib/booking/use-live-bookings";
 import { useServerClock } from "@/lib/use-server-clock";
 import { formatRemainingTime } from "@/lib/booking/time";
 import { useCourtView } from "./HomeCourtLayout";
@@ -38,6 +39,8 @@ export default function CourtBookingView({
 }) {
   const { activeId, setActiveId } = useCourtView();
   const [selection, setSelection] = useState<Selection>(null);
+  const [pendingSelection, setPendingSelection] = useState<Selection>(null);
+  const liveReservations = useLiveBookings(activeId, reservations);
   const now = useServerClock(serverNow, (time) => {
     if (
       activeId &&
@@ -47,6 +50,7 @@ export default function CourtBookingView({
     ) {
       setActiveId(null);
       setSelection(null);
+      setPendingSelection(null);
     }
   });
   const visible = groups.filter((g) => !hourEnded(g.date, 21, now));
@@ -106,7 +110,7 @@ export default function CourtBookingView({
   );
   const bookings = isPreview
     ? []
-    : reservations.filter((r) => r.group_id === active.id);
+    : liveReservations.filter((r) => r.group_id === active.id);
   const faces = rows.some((r) => r.segments[1]) ? 2 : 1;
   const closed = (hour: number) =>
     hourEnded(active.date, hour, now) ||
@@ -126,12 +130,13 @@ export default function CourtBookingView({
     faces === 2
       ? "grid-cols-[64px_1fr_1fr] sm:grid-cols-[140px_1fr_1fr]"
       : "grid-cols-[64px_1fr] sm:grid-cols-[140px_1fr_1fr]";
-  const start = validSelection?.hours[0];
+  const buttonSelection = pendingSelection ?? validSelection;
+  const start = buttonSelection?.hours[0];
   const segmentId =
     start === undefined
       ? null
       : rows.find((r) => r.hour === start)?.segments[
-          (validSelection?.face ?? 1) - 1
+          (buttonSelection?.face ?? 1) - 1
         ];
   return (
     <div className="pb-[calc(110px+env(safe-area-inset-bottom))]">
@@ -139,6 +144,7 @@ export default function CourtBookingView({
         onClick={() => {
           setActiveId(null);
           setSelection(null);
+          setPendingSelection(null);
         }}
         className="mb-3 rounded-xl bg-white px-4 py-2 text-sm font-bold text-gray-700 ring-1 ring-gray-300"
       >
@@ -198,19 +204,26 @@ export default function CourtBookingView({
               </p>
             </div>
           )}
-          {validSelection && segmentId ? (
+          {buttonSelection && segmentId ? (
             <ReservationButton
-              key={`${active.id}-${validSelection.face}-${validSelection.hours.join("-")}`}
+              key={`${active.id}-${buttonSelection.face}-${buttonSelection.hours.join("-")}`}
               batchId={active.batchId}
               groupId={active.id}
               segmentId={segmentId}
-              slotStartTime={formatHour(validSelection.hours[0])}
-              slotEndTime={formatHour(validSelection.hours.at(-1)! + 1)}
-              courtNumber={validSelection.face}
+              slotStartTime={formatHour(buttonSelection.hours[0])}
+              slotEndTime={formatHour(buttonSelection.hours.at(-1)! + 1)}
+              courtNumber={buttonSelection.face}
               courtName={courtLabel(active.court_name)}
               triggerLabel="예약하기"
-              onBooked={() => setSelection(null)}
-              onDismiss={() => setSelection(null)}
+              onOpen={() => setPendingSelection(buttonSelection)}
+              onBooked={() => {
+                setPendingSelection(null);
+                setSelection(null);
+              }}
+              onDismiss={() => {
+                setPendingSelection(null);
+                setSelection(null);
+              }}
             />
           ) : (
             <button

@@ -16,6 +16,7 @@ type ReservationButtonProps = {
   reservedBy?: string;
   isClosed?: boolean;
   triggerLabel?: string;
+  onOpen?: () => void;
   onBooked?: () => void;
   onDismiss?: () => void;
 };
@@ -31,6 +32,7 @@ export default function ReservationButton({
   reservedBy,
   isClosed,
   triggerLabel,
+  onOpen,
   onBooked,
   onDismiss,
 }: ReservationButtonProps) {
@@ -127,7 +129,10 @@ export default function ReservationButton({
   return (
     <>
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          onOpen?.();
+          setIsOpen(true);
+        }}
         className={
           triggerLabel
             ? "shrink-0 rounded-xl bg-[#8B0029] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#6F0021]"
